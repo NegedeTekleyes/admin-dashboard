@@ -141,9 +141,9 @@ const menuItems = [
         visible: ["admin", "users", "technicians"], // List and manage residents/technicians
       },
       {
-        icon: "/announcement.png",
-        label: "Announcement",
-        href: "/announcement",
+        icon: "/bell.png",
+        label: "Notifications",
+        href: "/notifications",
         visible: ["admin"], // Configure SMS/push notifications
       },
     ],
