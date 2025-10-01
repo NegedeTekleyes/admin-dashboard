@@ -12,8 +12,8 @@ import {
 
 const data = [
   { name: "Total Complaints", value: 45, color: "#bef222" },
-  { name: "Resolved Complaints", value: 35, color: "#22f2bb" },
-  { name: "Pending Complaints", value: 20, color: "#f25922" },
+  { name: "Resolved ", value: 35, color: "#22f2bb" },
+  { name: "Pending ", value: 20, color: "#f25922" },
 ];
 
 export default function CountChart() {

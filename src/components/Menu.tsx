@@ -113,13 +113,13 @@ const menuItems = [
       {
         icon: "/home.png",
         label: "Home",
-        href: "/home",
+        href: "/admin",
         visible: ["admin"], // Admin overview with summary stats
       },
       {
         icon: "/lesson.svg",
         label: "Manage Complaints",
-        href: "/complaints",
+        href: "/compliants",
         visible: ["admin"], // List, filter, assign, and review complaints
       },
       {
@@ -136,9 +136,9 @@ const menuItems = [
       },
       {
         icon: "/parent.png",
-        label: "Manage Users",
-        href: "/users",
-        visible: ["admin", "users", "technicians"], // List and manage residents/technicians
+        label: "Manage Technicians",
+        href: "/technicians",
+        visible: ["admin"], // List and manage residents/technicians
       },
       {
         icon: "/bell.png",
@@ -166,7 +166,13 @@ const menuItems = [
       {
         icon: "/logout.png",
         label: "Logout",
-        href: "/logout",
+        href: "/",
+        visible: ["admin"], // Logout action
+      },
+      {
+        icon: "/logout.png",
+        label: "NotificationList",
+        href: "/NotificationsList",
         visible: ["admin"], // Logout action
       },
     ],
@@ -186,6 +192,7 @@ const Menu = () => {
             <Image src={item.icon} alt="" width={20} height={20}/>
             <span className="hidden lg:block">{item.label}</span>
             </Link>
+            
           ))}
         </div>
       ))}
