@@ -10,111 +10,103 @@ import {
   FaUser,
   FaInbox,
   FaUserCheck,
+  FaExclamationTriangle,
+  FaCheckCircle,
+  FaClock,
+  FaTools,
 } from "react-icons/fa";
+import { complaintsAPI } from "@/lib/api";
 
+// Update the interface to match backend
 interface Complaint {
   id: number;
-  user: string;
-  email: string;
-  category: string;
+  title: string;
   description: string;
-  location: string;
-  urgency: "Critical" | "High" | "Medium" | "Low";
-  status: "Pending" | "In Progress" | "Resolved";
-  date: string;
-  photo: string;
-  assignedTo: string;
+  category: string;
+  urgency: string;
+  status: "SUBMITTED" | "ASSIGNED" | "IN_PROGRESS" | "RESOLVED" | "REJECTED";
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+  };
+  task?: {
+    technician: {
+      id: number;
+      name: string;
+      email: string;
+    };
+    assignedAt: string;
+  };
+  location?: any;
+  photos: string[];
+}
+
+interface Technician {
+  id: number;
+  name: string;
+  email: string;
 }
 
 export default function ComplaintsAdminDashboard() {
-  // ----- Demo Data -----
-  const initialComplaints: Complaint[] = [
-    {
-      id: 1,
-      user: "John Doe",
-      email: "john.doe@example.com",
-      category: "Water Quality",
-      description: "Brown water coming from taps",
-      location: "Downtown District",
-      urgency: "High",
-      status: "Pending",
-      date: "2023-10-15",
-      photo: "/water-quality-issue.jpg",
-      assignedTo: "",
-    },
-    {
-      id: 2,
-      user: "Jane Smith",
-      email: "jane.smith@example.com",
-      category: "Pipe Leak",
-      description: "Water leaking from main pipe on 5th street",
-      location: "5th Street, Central",
-      urgency: "Medium",
-      status: "In Progress",
-      date: "2023-10-14",
-      photo: "/pipe-leak.jpg",
-      assignedTo: "Technician Alex",
-    },
-    {
-      id: 3,
-      user: "Robert Johnson",
-      email: "robert.j@example.com",
-      category: "Low Pressure",
-      description: "Water pressure very low in morning hours",
-      location: "Northwest Residential Area",
-      urgency: "Medium",
-      status: "Resolved",
-      date: "2023-10-10",
-      photo: "/low-pressure.jpg",
-      assignedTo: "Technician Maria",
-    },
-    {
-      id: 4,
-      user: "Sarah Williams",
-      email: "sarah.williams@example.com",
-      category: "No Water",
-      description: "No water supply for 2 days",
-      location: "Eastern Suburbs",
-      urgency: "High",
-      status: "Pending",
-      date: "2023-10-16",
-      photo: "/no-water.jpg",
-      assignedTo: "",
-    },
-    {
-      id: 5,
-      user: "Michael Brown",
-      email: "michael.b@example.com",
-      category: "Sewage Issue",
-      description: "Sewage mixing with drinking water",
-      location: "Old Town District",
-      urgency: "Critical",
-      status: "Pending",
-      date: "2023-10-16",
-      photo: "/sewage-issue.jpg",
-      assignedTo: "",
-    }
-  ];
-
-  const [complaints, setComplaints] = useState(initialComplaints);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredComplaints, setFilteredComplaints] = useState(initialComplaints);
+  const [filteredComplaints, setFilteredComplaints] = useState<Complaint[]>([]);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [assignModal, setAssignModal] = useState<Complaint | null>(null);
-  const [technicians] = useState<string[]>([
-    "Technician Alex",
-    "Technician Maria",
-    "Technician David",
-    "Technician Sophia",
-  ]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch complaints and technicians from backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [complaintsData, techniciansData] = await Promise.all([
+          complaintsAPI.getAll(1, 50), // Get first 50 complaints
+          fetchTechnicians(), // We'll create this function
+        ]);
+        
+        setComplaints(complaintsData.complaints || []);
+        setTechnicians(techniciansData || []);
+      } catch (err) {
+        setError('Failed to load complaints');
+        console.error('Error fetching data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Fetch technicians (you'll need to create this API)
+  const fetchTechnicians = async (): Promise<Technician[]> => {
+    try {
+      const response = await fetch('http://localhost:3000/technicians', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to fetch technicians');
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching technicians:', error);
+      return [];
+    }
+  };
 
   // --- Filter by search term ---
   useEffect(() => {
     const lower = searchTerm.toLowerCase();
     setFilteredComplaints(
       complaints.filter((c) =>
-        [c.user, c.email, c.category, c.location, c.description]
+        [c.user.name, c.user.email, c.category, c.title, c.description]
           .join(" ")
           .toLowerCase()
           .includes(lower)
@@ -128,49 +120,158 @@ export default function ComplaintsAdminDashboard() {
     setShowModal(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm("Delete this complaint?")) {
-      setComplaints((prev) => prev.filter((c) => c.id !== id));
+      try {
+        // You'll need to add a delete endpoint
+        await fetch(`http://localhost:3000/complaints/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        });
+        setComplaints((prev) => prev.filter((c) => c.id !== id));
+      } catch (error) {
+        alert('Failed to delete complaint');
+        console.error('Delete error:', error);
+      }
     }
   };
 
   const handleBlock = (user: string, email: string) => {
     if (confirm(`Block ${user} (${email})?`)) {
       alert(`User ${user} has been blocked.`);
+      // Implement block user functionality
     }
   };
 
-  const handleSave = (updated: Complaint) => {
-    setComplaints((prev) =>
-      prev.map((c) => (c.id === updated.id ? updated : c))
-    );
-    setShowModal(false);
-    setSelectedComplaint(null);
+  const handleSave = async (updated: Complaint) => {
+    try {
+      await complaintsAPI.updateStatus(updated.id, updated.status);
+      setComplaints((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c))
+      );
+      setShowModal(false);
+      setSelectedComplaint(null);
+    } catch (error) {
+      alert('Failed to update complaint');
+      console.error('Update error:', error);
+    }
   };
   
   const handleAssign = (c: Complaint) => {
     setAssignModal(c);
   }
   
-  async function saveAssignment(c: Complaint) {
-    // 1. Optimistic UI
-    setComplaints(prev =>
-      prev.map(x => (x.id === c.id ? { ...x, assignedTo: c.assignedTo, status: "In Progress" } : x))
-    );
-    setAssignModal(null);
+  const saveAssignment = async (c: Complaint, technicianId: number) => {
+    try {
+      await complaintsAPI.assignTechnician(c.id, technicianId);
+      
+      // Update local state
+      const technician = technicians.find(t => t.id === technicianId);
+      setComplaints(prev =>
+        prev.map(x => 
+          x.id === c.id ? { 
+            ...x, 
+            status: "ASSIGNED" as const,
+            task: {
+              technician: technician!,
+              assignedAt: new Date().toISOString()
+            }
+          } : x
+        )
+      );
+      setAssignModal(null);
+    } catch (error) {
+      alert('Failed to assign technician');
+      console.error('Assignment error:', error);
+    }
+  };
 
-    // 2. Persist to backend
-    await fetch(`/api/complaints/${c.id}/assign`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ technicianId: c.assignedTo }),
-    });
+  // Status badge styling
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      'SUBMITTED': { color: 'bg-gray-100 text-gray-800', icon: FaClock },
+      'ASSIGNED': { color: 'bg-blue-100 text-blue-800', icon: FaUserCheck },
+      'IN_PROGRESS': { color: 'bg-yellow-100 text-yellow-800', icon: FaTools },
+      'RESOLVED': { color: 'bg-green-100 text-green-800', icon: FaCheckCircle },
+      'REJECTED': { color: 'bg-red-100 text-red-800', icon: FaBan },
+    };
+
+    const config = statusConfig[status] || statusConfig.SUBMITTED;
+    const IconComponent = config.icon;
+
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${config.color}`}>
+        <IconComponent className="text-xs" />
+        {status.replace('_', ' ')}
+      </span>
+    );
+  };
+
+  // Urgency badge styling
+  const getUrgencyBadge = (urgency: string) => {
+    const urgencyConfig = {
+      'CRITICAL': 'bg-red-100 text-red-800',
+      'HIGH': 'bg-orange-100 text-orange-800',
+      'MEDIUM': 'bg-yellow-100 text-yellow-800',
+      'LOW': 'bg-green-100 text-green-800',
+    };
+
+    const colorClass = urgencyConfig[urgency] || urgencyConfig.MEDIUM;
+
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}>
+        {urgency}
+      </span>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading complaints...</p>
+        </div>
+      </div>
+    );
   }
 
-  // ---------------- UI ----------------
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <strong>Error: </strong> {error}
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100 p-6 ">
-      <h1 className="text-xl font-semibold mb-6">Water Complaints Management</h1>
+    <div className="min-h-screen bg-gray-100 p-6">
+      <h1 className="text-2xl font-bold mb-6">Water Complaints Management</h1>
+
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        {['SUBMITTED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'].map((status) => {
+          const count = complaints.filter(c => c.status === status).length;
+          return (
+            <div key={status} className="bg-white p-4 rounded-lg shadow text-center">
+              <div className="text-2xl font-bold">{count}</div>
+              <div className="text-sm text-gray-600 capitalize">{status.toLowerCase().replace('_', ' ')}</div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Search and Actions */}
       <div className="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
@@ -191,12 +292,12 @@ export default function ComplaintsAdminDashboard() {
           <thead className="bg-gray-50 text-gray-700">
             <tr>
               <th className="p-3 text-left">User</th>
+              <th className="p-3 text-left">Title</th>
               <th className="p-3 text-left">Category</th>
-              <th className="p-3 text-left">Description</th>
-              <th className="p-3 text-left">Location</th>
               <th className="p-3 text-left">Urgency</th>
               <th className="p-3 text-left">Status</th>
               <th className="p-3 text-left">Assigned To</th>
+              <th className="p-3 text-left">Date</th>
               <th className="p-3 text-center">Actions</th>
             </tr>
           </thead>
@@ -217,41 +318,35 @@ export default function ComplaintsAdminDashboard() {
                         <FaUser className="text-blue-500" />
                       </div>
                       <div>
-                        <div className="font-medium">{c.user}</div>
-                        <div className="text-xs text-gray-500">{c.email}</div>
+                        <div className="font-medium">{c.user.name}</div>
+                        <div className="text-xs text-gray-500">{c.user.email}</div>
                       </div>
                     </div>
                   </td>
+                  <td className="p-3 font-medium">{c.title}</td>
                   <td className="p-3">{c.category}</td>
-                  <td className="p-3 max-w-xs truncate">{c.description}</td>
-                  <td className="p-3">{c.location}</td>
+                  <td className="p-3">{getUrgencyBadge(c.urgency)}</td>
+                  <td className="p-3">{getStatusBadge(c.status)}</td>
                   <td className="p-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium
-                      ${c.urgency === 'Critical' ? 'bg-red-100 text-red-800' : 
-                        c.urgency === 'High' ? 'bg-orange-100 text-orange-800' : 
-                        c.urgency === 'Medium' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-green-100 text-green-800'}`}>
-                      {c.urgency}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium
-                      ${c.status === 'Pending' ? 'bg-gray-100 text-gray-800' : 
-                        c.status === 'In Progress' ? 'bg-blue-100 text-blue-800' : 
-                        'bg-green-100 text-green-800'}`}>
-                      {c.status}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    {c.assignedTo || (
+                    {c.task ? (
+                      <div className="text-sm">
+                        <div className="font-medium">{c.task.technician.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(c.task.assignedAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ) : (
                       <button 
                         onClick={() => handleAssign(c)}
-                        className="text-green-600 hover:text-green-800 flex items-center"
+                        className="text-green-600 hover:text-green-800 flex items-center text-sm"
                         title="Assign Technician"
                       >
                         <FaUserCheck className="mr-1" /> Assign
                       </button>
                     )}
+                  </td>
+                  <td className="p-3 text-sm text-gray-600">
+                    {new Date(c.createdAt).toLocaleDateString()}
                   </td>
                   <td className="p-3">
                     <div className="flex justify-center gap-3 text-lg">
@@ -269,13 +364,6 @@ export default function ComplaintsAdminDashboard() {
                       >
                         <FaTrash />
                       </button>
-                      <button
-                        onClick={() => handleBlock(c.user, c.email)}
-                        className="text-orange-500 hover:text-orange-700 p-1 rounded-full hover:bg-orange-100"
-                        title="Block User"
-                      >
-                        <FaBan />
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -288,8 +376,8 @@ export default function ComplaintsAdminDashboard() {
       {/* Edit Modal */}
       {showModal && selectedComplaint && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-lg rounded-lg shadow-xl relative">
-            <div className="flex justify-between items-center border-b p-4">
+          <div className="bg-white w-full max-w-lg rounded-lg shadow-xl relative max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b p-4 sticky top-0 bg-white">
               <h2 className="text-lg font-semibold">Edit Complaint</h2>
               <button onClick={() => setShowModal(false)}>
                 <FaTimes className="text-gray-500 hover:text-gray-700" />
@@ -298,10 +386,13 @@ export default function ComplaintsAdminDashboard() {
 
             <div className="p-6 space-y-4">
               <div>
-                <strong>User:</strong> {selectedComplaint.user}
+                <strong>User:</strong> {selectedComplaint.user.name}
               </div>
               <div>
-                <strong>Email:</strong> {selectedComplaint.email}
+                <strong>Email:</strong> {selectedComplaint.user.email}
+              </div>
+              <div>
+                <strong>Title:</strong> {selectedComplaint.title}
               </div>
               <div>
                 <strong>Category:</strong> {selectedComplaint.category}
@@ -309,27 +400,6 @@ export default function ComplaintsAdminDashboard() {
               <div>
                 <strong>Description:</strong> {selectedComplaint.description}
               </div>
-              <div>
-                <strong>Location:</strong> {selectedComplaint.location}
-              </div>
-
-              <label className="block text-sm">
-                Urgency
-                <select
-                  className="mt-1 w-full border rounded-md p-2"
-                  value={selectedComplaint.urgency}
-                  onChange={(e) =>
-                    setSelectedComplaint({
-                      ...selectedComplaint,
-                      urgency: e.target.value as Complaint["urgency"],
-                    })
-                  }
-                >
-                  {["Critical", "High", "Medium", "Low"].map((u) => (
-                    <option key={u} value={u}>{u}</option>
-                  ))}
-                </select>
-              </label>
 
               <label className="block text-sm">
                 Status
@@ -343,33 +413,30 @@ export default function ComplaintsAdminDashboard() {
                     })
                   }
                 >
-                  {["Pending", "In Progress", "Resolved"].map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                  {["SUBMITTED", "ASSIGNED", "IN_PROGRESS", "RESOLVED", "REJECTED"].map((s) => (
+                    <option key={s} value={s}>{s.replace('_', ' ')}</option>
                   ))}
                 </select>
               </label>
 
-              <label className="block text-sm">
-                Assign Technician
-                <select
-                  className="mt-1 w-full border rounded-md p-2"
-                  value={selectedComplaint.assignedTo}
-                  onChange={(e) =>
-                    setSelectedComplaint({
-                      ...selectedComplaint,
-                      assignedTo: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">Unassigned</option>
-                  {technicians.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </label>
+              {selectedComplaint.photos && selectedComplaint.photos.length > 0 && (
+                <div>
+                  <strong>Photos:</strong>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {selectedComplaint.photos.map((photo, index) => (
+                      <img
+                        key={index}
+                        src={photo}
+                        alt={`Complaint photo ${index + 1}`}
+                        className="w-full h-24 object-cover rounded"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="flex justify-end gap-3 p-4 border-t">
+            <div className="flex justify-end gap-3 p-4 border-t sticky bottom-0 bg-white">
               <button
                 onClick={() => setShowModal(false)}
                 className="px-4 py-2 border rounded-md"
@@ -398,34 +465,30 @@ export default function ComplaintsAdminDashboard() {
               </button>
             </div>
             <div className="mb-4">
-              <div><strong>Complaint:</strong> {assignModal.category}</div>
-              <div><strong>User:</strong> {assignModal.user}</div>
-              <div><strong>Location:</strong> {assignModal.location}</div>
+              <div><strong>Complaint:</strong> {assignModal.title}</div>
+              <div><strong>User:</strong> {assignModal.user.name}</div>
+              <div><strong>Category:</strong> {assignModal.category}</div>
             </div>
             <select
               className="w-full border p-2 rounded-md mb-4"
-              value={assignModal.assignedTo}
-              onChange={(e) =>
-                setAssignModal({ ...assignModal, assignedTo: e.target.value })
-              }
+              onChange={(e) => {
+                const technicianId = parseInt(e.target.value);
+                if (technicianId) {
+                  saveAssignment(assignModal, technicianId);
+                }
+              }}
             >
               <option value="">Select technician</option>
               {technicians.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end">
               <button
                 onClick={() => setAssignModal(null)}
                 className="border px-4 py-2 rounded-md"
               >
                 Cancel
-              </button>
-              <button
-                onClick={() => assignModal && saveAssignment(assignModal)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md"
-              >
-                Assign
               </button>
             </div>
           </div>
