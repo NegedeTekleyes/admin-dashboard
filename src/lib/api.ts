@@ -16,13 +16,19 @@ export const apiRequest = async <T = any>(
   options: RequestInit = {}
 ): Promise<T> => {
   try {
-    const token = await storage.getItem('token');
-    
-    const headers: HeadersInit = {
+    const ADMIN_ACCESS_KEY = process.env.EXPO_PUBLIC_ADMIN_ACCESS_KEY || 'your-very-secret-admin-key-12345';
+
+    let headers: HeadersInit = {
       'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
+      'x-admin-api-key': ADMIN_ACCESS_KEY, 
       ...options.headers,
     };
+
+    // Optional: Still include token if available
+    const token = await storage.getItem('token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     const config: RequestInit = {
       headers,
@@ -127,46 +133,92 @@ export const reportsAPI = {
     }),
 };
 
+
+
 // Technicians API
+// export const techniciansAPI = {
+//   // Get all technicians with pagination
+//   getAll: (page: number = 1, limit: number = 10, status?: string): Promise<any> =>
+//     apiRequest(`/technicians?page=${page}&limit=${limit}`),
+
+//   // Get technician by ID
+//   getById: (id: number): Promise<any> =>
+//     apiRequest(`/technicians/${id}`),
+
+//   // Create technician
+//   create: (data: any): Promise<any> =>
+//     apiRequest('/technicians', {
+//       method: 'POST',
+//       body: JSON.stringify(data),
+//     }),
+
+//   // Update technician
+//   update: (id: number, data: any): Promise<any> =>
+//     apiRequest(`/technicians/${id}`, {
+//       method: 'PUT',
+//       body: JSON.stringify(data),
+//     }),
+
+//   // Delete technician
+//   delete: (id: number): Promise<void> =>
+//     apiRequest(`/technicians/${id}`, {
+//       method: 'DELETE',
+//     }),
+
+//   // Get technician performance
+//   getPerformance: (id: number, startDate?: string, endDate?: string): Promise<any> => {
+//     const params = new URLSearchParams();
+//     if (startDate) params.append('startDate', startDate);
+//     if (endDate) params.append('endDate', endDate);
+    
+//     return apiRequest(`/technicians/${id}/performance?${params.toString()}`);
+//   },
+// };
+
+// lib/api.ts - Updated techniciansAPI section
 export const techniciansAPI = {
-  // Get all technicians with pagination
-  getAll: (page: number = 1, limit: number = 100): Promise<any> =>
-    apiRequest(`/technicians?page=${page}&limit=${limit}`),
+  // Get all technicians with pagination and filtering
+  getAll: (page: number = 1, limit: number = 10, status?: string): Promise<any> => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      ...(status && { status })
+    });
+    return apiRequest(`/technicians?${params.toString()}`);
+  },
 
   // Get technician by ID
   getById: (id: number): Promise<any> =>
     apiRequest(`/technicians/${id}`),
 
   // Create technician
-  create: (data: any): Promise<any> =>
+  create: (data: { userId: number; speciality: string; status?: string }): Promise<any> =>
     apiRequest('/technicians', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   // Update technician
-  update: (id: number, data: any): Promise<any> =>
+  update: (id: number, data: { speciality?: string; status?: string }): Promise<any> =>
     apiRequest(`/technicians/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   // Delete technician
-  delete: (id: number): Promise<void> =>
+  delete: (id: number): Promise<any> =>
     apiRequest(`/technicians/${id}`, {
       method: 'DELETE',
     }),
 
-  // Get technician performance
-  getPerformance: (id: number, startDate?: string, endDate?: string): Promise<any> => {
-    const params = new URLSearchParams();
-    if (startDate) params.append('startDate', startDate);
-    if (endDate) params.append('endDate', endDate);
-    
-    return apiRequest(`/technicians/${id}/performance?${params.toString()}`);
-  },
-};
+  // Get available technicians (for assignment)
+  getAvailable: (): Promise<any> =>
+    apiRequest('/technicians/available'),
 
+  // Get technician performance stats
+  getStats: (): Promise<any> =>
+    apiRequest('/technicians/stats'),
+};
 export const analyticsAPI = {
       getComprehensiveAnalytics: (days: number = 30): Promise<any> => 
         apiRequest(`/analytics/dashboard?days=${days}`),
