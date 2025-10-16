@@ -2,7 +2,7 @@
 'use client';
 
 import { apiRequest } from '@/lib/api';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface Technician {
   id: number;
@@ -52,6 +52,24 @@ const TechniciansManagement = () => {
     status: '',
     search: ''
   });
+  const [actionMenuOpen, setActionMenuOpen] = useState<number | null>(null);
+  const actionMenuRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
+
+  // Close action menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const clickedOutsideAllMenus = Object.values(actionMenuRefs.current).every(
+        (ref) => ref && !ref.contains(event.target as Node)
+      );
+      
+      if (clickedOutsideAllMenus) {
+        setActionMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch technicians
   const fetchTechnicians = async () => {
@@ -215,6 +233,18 @@ const TechniciansManagement = () => {
         {speciality || 'GENERAL'}
       </span>
     );
+  };
+
+  // Toggle action menu
+  const toggleActionMenu = (id: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActionMenuOpen(actionMenuOpen === id ? null : id);
+  };
+
+  // Set ref for each action menu
+  const setActionMenuRef = (id: number, el: HTMLDivElement | null) => {
+    actionMenuRefs.current[id] = el;
   };
 
   return (
@@ -411,45 +441,97 @@ const TechniciansManagement = () => {
                         : 'Never'
                       }
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button 
-                        className="text-blue-600 hover:text-blue-900"
-                        onClick={() => {
-                          setSelectedTechnician(technician);
-                          setViewModalVisible(true);
-                        }}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div 
+                        ref={(el) => setActionMenuRef(technician.id, el)}
+                        className="relative inline-block text-left"
                       >
-                        View
-                      </button>
-                      <button 
-                        className="text-yellow-600 hover:text-yellow-900"
-                        onClick={() => {
-                          setSelectedTechnician(technician);
-                          setFormData({
-                            name: technician.user.name,
-                            email: technician.user.email,
-                            password: '', // Don't show current password
-                            phone: technician.user.phone || '',
-                            speciality: technician.speciality,
-                            status: technician.status
-                          });
-                          setModalVisible(true);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        className="text-green-600 hover:text-green-900"
-                        onClick={() => handleResetPassword(technician.id)}
-                      >
-                        Reset Password
-                      </button>
-                      <button 
-                        className="text-red-600 hover:text-red-900"
-                        onClick={() => handleDelete(technician.id)}
-                      >
-                        Delete
-                      </button>
+                        {/* Action Menu Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => toggleActionMenu(technician.id, e)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                          <span>Actions</span>
+                          <svg 
+                            className={`w-4 h-4 transition-transform ${actionMenuOpen === technician.id ? 'rotate-180' : ''}`} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {actionMenuOpen === technician.id && (
+                          <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 ring-1 ring-black ring-opacity-5">
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTechnician(technician);
+                                  setViewModalVisible(true);
+                                  setActionMenuOpen(null);
+                                }}
+                                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition text-left"
+                              >
+                                <span className="text-gray-400">👁️</span>
+                                View Details
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTechnician(technician);
+                                  setFormData({
+                                    name: technician.user.name,
+                                    email: technician.user.email,
+                                    password: '',
+                                    phone: technician.user.phone || '',
+                                    speciality: technician.speciality,
+                                    status: technician.status
+                                  });
+                                  setModalVisible(true);
+                                  setActionMenuOpen(null);
+                                }}
+                                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-yellow-700 hover:bg-yellow-50 transition text-left"
+                              >
+                                <span className="text-yellow-600">✏️</span>
+                                Edit Technician
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleResetPassword(technician.id);
+                                  setActionMenuOpen(null);
+                                }}
+                                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-green-700 hover:bg-green-50 transition text-left"
+                              >
+                                <span className="text-green-600">🔑</span>
+                                Reset Password
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(technician.id);
+                                  setActionMenuOpen(null);
+                                }}
+                                className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 transition text-left"
+                              >
+                                <span className="text-red-600">🗑️</span>
+                                Delete Technician
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
