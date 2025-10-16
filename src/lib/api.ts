@@ -25,10 +25,10 @@ export const apiRequest = async <T = any>(
     };
 
     // Optional: Still include token if available
-    const token = await storage.getItem('token');
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    // const token = await storage.getItem('token');
+    // if (token) {
+    //   headers['Authorization'] = `Bearer ${token}`;
+    // }
 
     const config: RequestInit = {
       headers,
@@ -178,7 +178,7 @@ export const reportsAPI = {
 // lib/api.ts - Updated techniciansAPI section
 export const techniciansAPI = {
   // Get all technicians with pagination and filtering
-  getAll: (page: number = 1, limit: number = 10, status?: string): Promise<any> => {
+  getAll: (page: number = 1, limit: number = 100, status?: string): Promise<any> => {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
@@ -258,29 +258,92 @@ interface CreateComplaintData {
 }
 
 // Complaints API with proper typing
+// Add to your existing api.ts
 export const complaintsAPI = {
-  create: (data: CreateComplaintData): Promise<Complaint> => 
-    apiRequest<Complaint>('/complaints', {
+  // Create new complaint
+  create: (data: {
+    title: string;
+    description: string;
+    category: string;
+    urgency?: string;
+    photos?: string[];
+    locationData?: {
+      latitude: number;
+      longitude: number;
+      address?: string;
+      accuracy?: number;
+    };
+  }): Promise<any> =>
+    apiRequest('/complaints', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  getMyComplaints: (): Promise<Complaint[]> => 
-    apiRequest<Complaint[]>('/complaints/my-complaints'),
+  // Get all complaints (admin)
+  // Get all complaints (admin)
+getAll: (
+  page: number = 1,
+  limit: number = 10,
+  status?: string,
+  urgency?: string,
+  category?: string
+): Promise<any> => {
+  const params = new URLSearchParams();
 
-  getById: (id: number): Promise<Complaint> => 
-    apiRequest<Complaint>(`/complaints/${id}`),
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+  if (status) params.append('status', status);
+  if (urgency) params.append('urgency', urgency);
+  if (category) params.append('category', category);
 
-  update: (id: number, data: Partial<CreateComplaintData>): Promise<Complaint> =>
-    apiRequest<Complaint>(`/complaints/${id}`, {
+  return apiRequest(`/complaints?${params.toString()}`);
+},
+
+  // Get complaint by ID
+  getById: (id: number): Promise<any> =>
+    apiRequest(`/complaints/${id}`),
+
+  // Get user's complaints
+  getMyComplaints: (page: number = 1, limit: number = 10): Promise<any> => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    return apiRequest(`/complaints/my-complaints?${params.toString()}`);
+  },
+
+  // Get assigned complaints (technician)
+  getAssignedComplaints: (page: number = 1, limit: number = 10): Promise<any> => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    return apiRequest(`/complaints/assigned?${params.toString()}`);
+  },
+
+  // Update complaint status
+  updateStatus: (id: number, status: string, adminNotes?: string): Promise<any> =>
+    apiRequest(`/complaints/${id}/status`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ status, adminNotes }),
     }),
 
-  delete: (id: number): Promise<void> =>
-    apiRequest<void>(`/complaints/${id}`, {
+  // Assign technician
+  assignTechnician: (complaintId: number, technicianId: number): Promise<any> =>
+    apiRequest(`/complaints/${complaintId}/assign`, {
+      method: 'PATCH',
+      body: JSON.stringify({ technicianId }),
+    }),
+
+  // Delete complaint
+  delete: (id: number): Promise<any> =>
+    apiRequest(`/complaints/${id}`, {
       method: 'DELETE',
     }),
+
+  // Get complaint stats
+  getStats: (): Promise<any> =>
+    apiRequest('/complaints/stats'),
 };
 
 // Auth API functions
