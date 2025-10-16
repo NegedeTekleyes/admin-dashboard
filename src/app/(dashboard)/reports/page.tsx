@@ -79,6 +79,8 @@ const ReportsPage = () => {
         name: tech.user?.name || 'Unknown',
         email: tech.user?.email || '',
         speciality: tech.speciality,
+        status: tech.status,
+        stats: tech.stats,
       })) || []);
     } catch (error) {
       console.error('Error fetching technicians:', error);
@@ -117,6 +119,8 @@ const ReportsPage = () => {
       setRealReportData(data);
     } catch (error) {
       console.error('Error fetching technician report:', error);
+      const fallbackData = await reportsAPI.getTechnicianPerformance(technicianId, dateRange.start, dateRange.end)
+      setRealReportData(fallbackData)
     } finally {
       setIsLoading(false);
     }
