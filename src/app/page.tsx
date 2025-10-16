@@ -1,6 +1,10 @@
+import AdminAuthPage from "./sign-in/Login"
+
 const Homepage = () => {
   return (
-    <div className=''>Homepage</div>
+    <div className=''>
+      <AdminAuthPage/>
+    </div>
   )
 }
 
