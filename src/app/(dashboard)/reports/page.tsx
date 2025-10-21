@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   FaFilter,
   FaDownload,
@@ -18,48 +18,93 @@ import {
   FaSpinner,
 } from "react-icons/fa";
 import { reportsAPI, techniciansAPI } from "@/lib/api";
+import { debounce } from "lodash"; // Import lodash for debouncing
+
+// Type definitions based on backend responses
+interface Technician {
+  id: number;
+  name: string;
+  email: string;
+  speciality: string;
+  status: string;
+  stats?: any;
+}
+
+interface AnalyticsReportData {
+  period: { start: string; end: string };
+  summary: {
+    totalComplaints: number;
+    resolvedComplaints: number;
+    resolutionRate: number;
+    activeTechnicians: number;
+    averageResolutionTime: number;
+  };
+}
+
+interface TechnicianPerformanceData {
+  technician: { id: number; name: string; email: string; speciality: string };
+  performance: {
+    totalTasks: number;
+    completedTasks: number;
+    completionRate: number;
+    averageResolutionTime: number;
+    efficiency: number;
+  };
+}
+
+interface SavedReport {
+  id: number;
+  title: string;
+  type: string;
+  generatedByUser: { name: string };
+  generatedAt: string;
+}
 
 interface ReportData {
   title: string;
   description: string;
   headers: string[];
   rows: string[][];
-  period?: {
-    start: string;
-    end: string;
-  };
-  summary?: any;
+  period?: { start: string; end: string };
+  summary?: AnalyticsReportData["summary"];
 }
 
-interface Technician {
-  id: number;
-  name: string;
-  email: string;
-  speciality?: string;
+interface ReportConfig {
+  title: string;
+  type: string;
+  filters: {
+    startDate: string;
+    endDate: string;
+    status?: string;
+    category?: string;
+    urgency?: string;
+    technicianId?: number;
+  };
 }
 
 const ReportsPage = () => {
   const [dateRange, setDateRange] = useState({
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days ago
-    end: new Date().toISOString().split('T')[0] // Today
+    end: new Date().toISOString().split('T')[0], // Today
   });
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [technicianFilter, setTechnicianFilter] = useState("all");
-  const [reportType, setReportType] = useState("summary");
+  const [reportType, setReportType] = useState<"summary" | "analytics" | "performance" | "category">("summary");
   const [isLoading, setIsLoading] = useState(false);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [realReportData, setRealReportData] = useState<any>(null);
-  const [savedReports, setSavedReports] = useState<any[]>([]);
+  const [realReportData, setRealReportData] = useState<AnalyticsReportData | TechnicianPerformanceData | null>(null);
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
   const [showSavedReports, setShowSavedReports] = useState(false);
-  const [error, setError] = useState<string | null>(null)
-  // Fetch technicians for filter
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch technicians
   useEffect(() => {
     fetchTechnicians();
   }, []);
 
-  // Fetch real report data when filters change
+  // Fetch report data when filters or report type change
   useEffect(() => {
     if (reportType === "summary" || reportType === "analytics") {
       fetchAnalyticsReport();
@@ -68,90 +113,102 @@ const ReportsPage = () => {
 
   const fetchTechnicians = async () => {
     try {
-      console.log('Calling techniciansAPI.getAll...')
-      if(!techniciansAPI) {
-        throw new Error('techniciansAPI not available')
+      setIsLoading(true);
+      setError(null);
+      if (!techniciansAPI) {
+        throw new Error("techniciansAPI not available");
       }
       const data = await techniciansAPI.getAll(1, 100);
-      console.log('Technicians data:', data)
-      setTechnicians(data.technicians?.map((tech: any) => ({
+      const techniciansData = data.technicians?.map((tech: any) => ({
         id: tech.id,
-        name: tech.user?.name || 'Unknown',
-        email: tech.user?.email || '',
-        speciality: tech.speciality,
-        status: tech.status,
+        name: tech.user?.name || "Unknown",
+        email: tech.user?.email || "",
+        speciality: tech.speciality || "N/A",
+        status: tech.status || "N/A",
         stats: tech.stats,
-      })) || []);
+      })) || [];
+      setTechnicians(techniciansData);
+      if (techniciansData.length === 0) {
+        setError("No technicians found");
+      }
     } catch (error) {
-      console.error('Error fetching technicians:', error);
-      setError('Failed to load technicians')
-        // Set mock technicians for testing
-      setTechnicians([
-        { id: 1, name: "John Doe", email: "john@example.com", speciality: "Plumbing" },
-        { id: 2, name: "Jane Smith", email: "jane@example.com", speciality: "Electrical" }
-      ]);
+      console.error("Error fetching technicians:", error);
+      setError("Failed to load technicians. Please try again later.");
+      setTechnicians([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const fetchAnalyticsReport = async () => {
     try {
       setIsLoading(true);
-      setError(null)
-      console.log("Calling reportsAP.getAnalytics...")
-      if(!reportsAPI){
-        throw new Error("ReportsAPI not available")
+      setError(null);
+      if (!reportsAPI) {
+        throw new Error("reportsAPI not available");
       }
       const data = await reportsAPI.getAnalytics(dateRange.start, dateRange.end);
       setRealReportData(data);
+      if (!data.summary || Object.keys(data.summary).length === 0) {
+        setError("No analytics data available for the selected period");
+      }
     } catch (error) {
-      console.error('Error fetching analytics report:', error);
-      // Fallback to mock data if API fails
-      setRealReportData(generateMockReportData());
+      console.error("Error fetching analytics report:", error);
+      setError("Failed to load analytics report. Please try again.");
+      setRealReportData(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchTechnicianReport = async (technicianId: number) => {
-    try {
-      setIsLoading(true);
-      const data = await reportsAPI.getTechnicianPerformance(technicianId, dateRange.start, dateRange.end);
-      setRealReportData(data);
-    } catch (error) {
-      console.error('Error fetching technician report:', error);
-      const fallbackData = await reportsAPI.getTechnicianPerformance(technicianId, dateRange.start, dateRange.end)
-      setRealReportData(fallbackData)
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const fetchTechnicianReport = useCallback(
+    debounce(async (technicianId: number) => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        if (!reportsAPI) {
+          throw new Error("reportsAPI not available");
+        }
+        const data = await reportsAPI.getTechnicianPerformance(technicianId, dateRange.start, dateRange.end);
+        setRealReportData(data);
+        if (!data.performance || Object.keys(data.performance).length === 0) {
+          setError(`No performance data available for technician ID ${technicianId}`);
+        }
+      } catch (error) {
+        console.error("Error fetching technician report:", error);
+        setError("Failed to load technician report. Please try again.");
+        setRealReportData(null);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 500),
+    [dateRange.start, dateRange.end]
+  );
 
   const generateNewReport = async () => {
     try {
       setIsLoading(true);
-      const reportConfig = {
+      setError(null);
+      const reportConfig: ReportConfig = {
         title: getReportTitle(),
         type: getReportType(),
         filters: {
           startDate: dateRange.start,
           endDate: dateRange.end,
-          status: statusFilter !== "all" ? statusFilter : undefined,
-          category: categoryFilter !== "all" ? categoryFilter : undefined,
-          urgency: urgencyFilter !== "all" ? urgencyFilter : undefined,
-          technicianId: technicianFilter !== "all" ? parseInt(technicianFilter) : undefined,
+          ...(statusFilter !== "all" && { status: statusFilter }),
+          ...(categoryFilter !== "all" && { category: categoryFilter }),
+          ...(urgencyFilter !== "all" && { urgency: urgencyFilter }),
+          ...(technicianFilter !== "all" && { technicianId: parseInt(technicianFilter) }),
         },
       };
 
       const data = await reportsAPI.generate(reportConfig);
       setRealReportData(data.data);
-      
-      // Refresh saved reports
-      fetchSavedReports();
-      
-      alert('Report generated and saved successfully!');
+      await fetchSavedReports();
+      alert("Report generated and saved successfully!");
     } catch (error) {
-      console.error('Error generating report:', error);
-      alert('Failed to generate report');
+      console.error("Error generating report:", error);
+      setError("Failed to generate report. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -159,22 +216,32 @@ const ReportsPage = () => {
 
   const fetchSavedReports = async () => {
     try {
+      setIsLoading(true);
+      setError(null);
       const data = await reportsAPI.getSaved();
-      setSavedReports(data.reports);
+      setSavedReports(data.reports || []);
+      if (!data.reports || data.reports.length === 0) {
+        setError("No saved reports found");
+      }
     } catch (error) {
-      console.error('Error fetching saved reports:', error);
+      console.error("Error fetching saved reports:", error);
+      setError("Failed to load saved reports. Please try again.");
+      setSavedReports([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const loadSavedReport = async (reportId: number) => {
     try {
       setIsLoading(true);
+      setError(null);
       const data = await reportsAPI.getById(reportId);
       setRealReportData(data.data);
       setShowSavedReports(false);
     } catch (error) {
-      console.error('Error loading saved report:', error);
-      alert('Failed to load saved report');
+      console.error("Error loading saved report:", error);
+      setError("Failed to load saved report. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -186,7 +253,7 @@ const ReportsPage = () => {
       summary: "Complaints Summary",
       analytics: "Comprehensive Analytics",
       performance: "Technician Performance",
-      category: "Category Analysis"
+      category: "Category Analysis",
     };
     return `${typeMap[reportType]} Report - ${dateRange.start} to ${dateRange.end}`;
   };
@@ -196,86 +263,96 @@ const ReportsPage = () => {
       summary: "SUMMARY",
       analytics: "ANALYTICS",
       performance: "TECHNICIAN",
-      category: "ANALYTICS"
+      category: "ANALYTICS",
     };
     return typeMap[reportType] || "ANALYTICS";
   };
 
-  const generateReportData = (): ReportData => {
-    if (realReportData) {
-      return formatRealReportData(realReportData);
+  const formatRealReportData = (data: AnalyticsReportData | TechnicianPerformanceData | null): ReportData => {
+    if (!data) {
+      return {
+        title: "No Data Available",
+        description: "No report data available for the selected filters",
+        headers: [],
+        rows: [],
+      };
     }
-    
-    // Fallback to mock data
-    return generateMockReportData();
-  };
 
-  const formatRealReportData = (data: any): ReportData => {
     switch (reportType) {
       case "summary":
       case "analytics":
+        const analyticsData = data as AnalyticsReportData;
         return {
-          title: data.period ? `Analytics Report - ${new Date(data.period.start).toLocaleDateString()} to ${new Date(data.period.end).toLocaleDateString()}` : "Analytics Report",
+          title: analyticsData.period
+            ? `Analytics Report - ${new Date(analyticsData.period.start).toLocaleDateString()} to ${new Date(analyticsData.period.end).toLocaleDateString()}`
+            : "Analytics Report",
           description: "Comprehensive analysis of complaints and performance metrics",
           headers: ["Metric", "Value", "Details"],
           rows: [
-            ["Total Complaints", data.summary?.totalComplaints?.toString() || "0", "All complaints in period"],
-            ["Resolved Complaints", data.summary?.resolvedComplaints?.toString() || "0", "Successfully resolved"],
-            ["Resolution Rate", data.summary?.resolutionRate ? `${data.summary.resolutionRate}%` : "0%", "Efficiency metric"],
-            ["Active Technicians", data.summary?.activeTechnicians?.toString() || "0", "Available technicians"],
-            ["Average Resolution Time", data.summary?.averageResolutionTime ? `${data.summary.averageResolutionTime}h` : "N/A", "Time to resolve complaints"],
+            ["Total Complaints", analyticsData.summary?.totalComplaints?.toString() || "0", "All complaints in period"],
+            ["Resolved Complaints", analyticsData.summary?.resolvedComplaints?.toString() || "0", "Successfully resolved"],
+            ["Resolution Rate", analyticsData.summary?.resolutionRate ? `${analyticsData.summary.resolutionRate}%` : "0%", "Efficiency metric"],
+            ["Active Technicians", analyticsData.summary?.activeTechnicians?.toString() || "0", "Available technicians"],
+            ["Average Resolution Time", analyticsData.summary?.averageResolutionTime ? `${analyticsData.summary.averageResolutionTime}h` : "N/A", "Time to resolve complaints"],
           ],
-          period: data.period,
-          summary: data.summary,
+          period: analyticsData.period,
+          summary: analyticsData.summary,
         };
 
       case "performance":
-        if (data.technician && data.performance) {
-          return {
-            title: `Performance Report - ${data.technician.name}`,
-            description: `Performance metrics for ${data.technician.name}`,
-            headers: ["Metric", "Value", "Benchmark"],
-            rows: [
-              ["Total Tasks", data.performance.totalTasks?.toString() || "0", "≥ 15"],
-              ["Completed Tasks", data.performance.completedTasks?.toString() || "0", "≥ 12"],
-              ["Completion Rate", data.performance.completionRate ? `${data.performance.completionRate}%` : "0%", "≥ 80%"],
-              ["Avg Resolution Time", data.performance.averageResolutionTime ? `${data.performance.averageResolutionTime}h` : "N/A", "≤ 24h"],
-              ["Efficiency", data.performance.efficiency ? `${data.performance.efficiency}%` : "0%", "≥ 85%"],
-            ],
-          };
-        }
-        break;
+        const performanceData = data as TechnicianPerformanceData;
+        return {
+          title: `Performance Report - ${performanceData.technician?.name || "Unknown"}`,
+          description: `Performance metrics for ${performanceData.technician?.name || "technician"}`,
+          headers: ["Metric", "Value", "Benchmark"],
+          rows: [
+            ["Total Tasks", performanceData.performance?.totalTasks?.toString() || "0", "≥ 15"],
+            ["Completed Tasks", performanceData.performance?.completedTasks?.toString() || "0", "≥ 12"],
+            ["Completion Rate", performanceData.performance?.completionRate ? `${performanceData.performance.completionRate}%` : "0%", "≥ 80%"],
+            ["Avg Resolution Time", performanceData.performance?.averageResolutionTime ? `${performanceData.performance.averageResolutionTime}h` : "N/A", "≤ 24h"],
+            ["Efficiency", performanceData.performance?.efficiency ? `${performanceData.performance.efficiency}%` : "0%", "≥ 85%"],
+          ],
+        };
+
+      case "category":
+        return {
+          title: `Category Analysis - ${dateRange.start} to ${dateRange.end}`,
+          description: "Analysis of complaints by category",
+          headers: ["Category", "Total Complaints", "Resolved", "Resolution Rate"],
+          rows: (data as AnalyticsReportData).summary?.categories?.map((cat: any) => [
+            cat.name || "Unknown",
+            cat.totalComplaints?.toString() || "0",
+            cat.resolvedComplaints?.toString() || "0",
+            cat.resolutionRate ? `${cat.resolutionRate}%` : "0%",
+          ]) || [],
+        };
 
       default:
-        return generateMockReportData();
+        return {
+          title: "Invalid Report Type",
+          description: "Selected report type is not supported",
+          headers: [],
+          rows: [],
+        };
     }
-    
-    return generateMockReportData();
   };
 
-  const generateMockReportData = (): ReportData => {
-    // Your existing mock data generation logic
-    return {
-      title: "Complaints Summary Report",
-      description: "Overview of filtered complaints with key metrics and statistics",
-      headers: ["Period", "Total Complaints", "Resolved", "In Progress", "Pending", "Resolution Rate", "Avg. Resolution Time"],
-      rows: [
-        [`${dateRange.start} to ${dateRange.end}`, "45", "32", "8", "5", "71.1%", "22.5h"]
-      ]
-    };
-  };
-
-  const exportReport = async (format: string) => {
+  const exportReport = async (format: "csv" | "pdf" | "excel") => {
     try {
-      // In a real implementation, this would call your backend export endpoint
-      console.log(`Exporting report as ${format}`);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      setIsLoading(true);
+      setError(null);
+      // Assume backend has an export endpoint, e.g., /reports/export/:id?format={format}
+      const reportId = realReportData?.id; // Adjust based on actual data structure
+      if (!reportId || isNaN(reportId) || reportId <= 0) {
+        throw new Error("No report data available to export");
+      }
+      await reportsAPI.export(reportId, format); // Implement this in reportsAPI
       alert(`Report exported as ${format.toUpperCase()} successfully!`);
     } catch (error) {
-      alert(`Failed to export report as ${format.toUpperCase()}`);
+      console.error(`Error exporting report as ${format}:`, error);
+      setError(`Failed to export report as ${format.toUpperCase()}.`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -290,11 +367,24 @@ const ReportsPage = () => {
     setTechnicianFilter("all");
     setDateRange({
       start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      end: new Date().toISOString().split('T')[0]
+      end: new Date().toISOString().split('T')[0],
     });
+    setRealReportData(null);
+    setError(null);
   };
 
-  const currentReport = generateReportData();
+  const handleTechnicianChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      setTechnicianFilter(value);
+      if (value !== "all" && reportType === "performance") {
+        fetchTechnicianReport(parseInt(value));
+      }
+    },
+    [fetchTechnicianReport, reportType]
+  );
+
+  const currentReport = formatRealReportData(realReportData);
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -306,14 +396,14 @@ const ReportsPage = () => {
             <p className="text-gray-600">Generate detailed reports and insights from real data</p>
           </div>
           <div className="flex items-center space-x-2 mt-4 md:mt-0">
-            <button 
+            <button
               onClick={() => setShowSavedReports(!showSavedReports)}
               className="bg-white border rounded-md px-3 py-2 flex items-center hover:bg-gray-50"
             >
               <FaFilePdf className="text-gray-600 mr-1" />
               <span>Saved Reports</span>
             </button>
-            <button 
+            <button
               onClick={printReport}
               className="bg-white border rounded-md px-3 py-2 flex items-center hover:bg-gray-50"
             >
@@ -323,6 +413,14 @@ const ReportsPage = () => {
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+            <p className="font-semibold">Error</p>
+            <p>{error}</p>
+          </div>
+        )}
+
         {/* Saved Reports Modal */}
         {showSavedReports && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -330,7 +428,7 @@ const ReportsPage = () => {
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold">Saved Reports</h2>
-                  <button 
+                  <button
                     onClick={() => setShowSavedReports(false)}
                     className="text-gray-500 hover:text-gray-700"
                   >
@@ -339,7 +437,11 @@ const ReportsPage = () => {
                 </div>
               </div>
               <div className="p-6 overflow-y-auto max-h-[60vh]">
-                {savedReports.length === 0 ? (
+                {isLoading ? (
+                  <div className="flex justify-center items-center h-64">
+                    <FaSpinner className="animate-spin h-12 w-12 text-blue-500" />
+                  </div>
+                ) : savedReports.length === 0 ? (
                   <div className="text-center py-8">
                     <FaFilePdf className="mx-auto text-4xl text-gray-300 mb-3" />
                     <p className="text-gray-500">No saved reports yet</p>
@@ -357,7 +459,8 @@ const ReportsPage = () => {
                             <h3 className="font-semibold">{report.title}</h3>
                             <p className="text-sm text-gray-600">{report.type}</p>
                             <p className="text-xs text-gray-500">
-                              Generated by {report.generatedByUser?.name} on {new Date(report.generatedAt).toLocaleDateString()}
+                              Generated by {report.generatedByUser?.name || "Unknown"} on{" "}
+                              {new Date(report.generatedAt).toLocaleDateString()}
                             </p>
                           </div>
                           <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
@@ -390,11 +493,11 @@ const ReportsPage = () => {
                 className="text-sm text-green-600 hover:text-green-800 flex items-center"
               >
                 <FaDownload className="mr-1" />
-                Refresh Data
+                Refresh Saved Reports
               </button>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* Report Type Selection */}
             <div>
@@ -409,11 +512,9 @@ const ReportsPage = () => {
                   <button
                     key={key}
                     className={`px-4 py-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 ${
-                      reportType === key
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      reportType === key ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                     }`}
-                    onClick={() => setReportType(key)}
+                    onClick={() => setReportType(key as typeof reportType)}
                   >
                     <Icon />
                     {label}
@@ -433,14 +534,14 @@ const ReportsPage = () => {
                   type="date"
                   className="border rounded-md p-2 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   value={dateRange.start}
-                  onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
+                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
                 />
                 <span className="self-center text-gray-500">to</span>
                 <input
                   type="date"
                   className="border rounded-md p-2 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   value={dateRange.end}
-                  onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
                 />
               </div>
             </div>
@@ -501,17 +602,12 @@ const ReportsPage = () => {
               <select
                 className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 value={technicianFilter}
-                onChange={(e) => {
-                  setTechnicianFilter(e.target.value);
-                  if (e.target.value !== "all" && reportType === "performance") {
-                    fetchTechnicianReport(parseInt(e.target.value));
-                  }
-                }}
+                onChange={handleTechnicianChange}
               >
                 <option value="all">All Technicians</option>
-                {technicians.map(tech => (
+                {technicians.map((tech) => (
                   <option key={tech.id} value={tech.id.toString()}>
-                    {tech.name}
+                    {tech.name} ({tech.speciality})
                   </option>
                 ))}
                 <option value="unassigned">Unassigned</option>
@@ -535,10 +631,10 @@ const ReportsPage = () => {
                 {isLoading ? "Generating..." : "Generate Report"}
               </button>
             </div>
-            
+
             <div className="flex flex-wrap gap-3">
               <button
-                onClick={() => exportReport('csv')}
+                onClick={() => exportReport("csv")}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50"
                 disabled={isLoading || !realReportData}
               >
@@ -547,7 +643,7 @@ const ReportsPage = () => {
               </button>
 
               <button
-                onClick={() => exportReport('pdf')}
+                onClick={() => exportReport("pdf")}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50"
                 disabled={isLoading || !realReportData}
               >
@@ -556,7 +652,7 @@ const ReportsPage = () => {
               </button>
 
               <button
-                onClick={() => exportReport('excel')}
+                onClick={() => exportReport("excel")}
                 className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50"
                 disabled={isLoading || !realReportData}
               >
@@ -575,6 +671,11 @@ const ReportsPage = () => {
                 <FaSpinner className="animate-spin h-12 w-12 text-blue-500 mx-auto mb-4" />
                 <p className="text-gray-600">Generating report...</p>
               </div>
+            </div>
+          ) : !realReportData || currentReport.rows.length === 0 ? (
+            <div className="text-center py-8">
+              <FaExclamationTriangle className="mx-auto text-4xl text-gray-300 mb-3" />
+              <p className="text-gray-500">{error || "No data available for the selected filters"}</p>
             </div>
           ) : (
             <>
@@ -627,23 +728,25 @@ const ReportsPage = () => {
               </div>
 
               {/* Additional Metrics */}
-              {realReportData?.summary && (
+              {currentReport.summary && (
                 <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <h3 className="font-semibold text-blue-800">Total Complaints</h3>
-                    <p className="text-2xl font-bold text-blue-600">{realReportData.summary.totalComplaints || 0}</p>
+                    <p className="text-2xl font-bold text-blue-600">{currentReport.summary.totalComplaints || 0}</p>
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg">
                     <h3 className="font-semibold text-green-800">Resolved</h3>
-                    <p className="text-2xl font-bold text-green-600">{realReportData.summary.resolvedComplaints || 0}</p>
+                    <p className="text-2xl font-bold text-green-600">{currentReport.summary.resolvedComplaints || 0}</p>
                   </div>
                   <div className="bg-purple-50 p-4 rounded-lg">
                     <h3 className="font-semibold text-purple-800">Resolution Rate</h3>
-                    <p className="text-2xl font-bold text-purple-600">{realReportData.summary.resolutionRate || 0}%</p>
+                    <p className="text-2xl font-bold text-purple-600">{currentReport.summary.resolutionRate || 0}%</p>
                   </div>
                   <div className="bg-orange-50 p-4 rounded-lg">
                     <h3 className="font-semibold text-orange-800">Avg. Resolution Time</h3>
-                    <p className="text-2xl font-bold text-orange-600">{realReportData.summary.averageResolutionTime || 'N/A'}h</p>
+                    <p className="text-2xl font-bold text-orange-600">
+                      {currentReport.summary.averageResolutionTime || "N/A"}h
+                    </p>
                   </div>
                 </div>
               )}
@@ -654,11 +757,16 @@ const ReportsPage = () => {
                 <ul className="text-sm text-blue-700 space-y-1">
                   <li>• Report generated from real database data</li>
                   <li>• Data reflects period: {dateRange.start} to {dateRange.end}</li>
-                  <li>• Based on current filter criteria</li>
+                  <li>
+                    • Filters: Status: {statusFilter !== "all" ? statusFilter : "All"}, Category:{" "}
+                    {categoryFilter !== "all" ? categoryFilter : "All"}, Urgency:{" "}
+                    {urgencyFilter !== "all" ? urgencyFilter : "All"}, Technician:{" "}
+                    {technicianFilter !== "all"
+                      ? technicians.find((t) => t.id.toString() === technicianFilter)?.name || "Unassigned"
+                      : "All"}
+                  </li>
                   <li>• Export options available for further analysis</li>
-                  {realReportData && (
-                    <li>• Report has been saved to your account</li>
-                  )}
+                  {realReportData && <li>• Report has been saved to your account</li>}
                 </ul>
               </div>
             </>
