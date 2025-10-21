@@ -96,7 +96,7 @@ const AdminAuthPage = () => {
         }
 
         console.log("Login successful!", data.user)
-        router.push('/admin')
+        router.push('/complaints')
       }else{
         // Registration logic (you can implement this later)
         console.log("Registration attempt:", formData)
