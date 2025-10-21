@@ -14,13 +14,19 @@ export interface Complaint {
   } | null;
   userId: number;
   user: {
+    phone: string;
     id: number;
     name: string;
     email: string;
   };
   tasks: Array<{
+    status: any;
+    createdAt(createdAt: any): import("react").ReactNode;
+    updatedAt: any;
+    notes: any;
     id: number;
     technician: {
+      speciality: any;
       id: number;
       user: {
         id: number;
