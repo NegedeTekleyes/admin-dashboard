@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { complaintsAPI, techniciansAPI } from '@/lib/api';
 import { Complaint, ComplaintStats } from '../../types/complaint';
+import { storage } from '@/lib/storage';
 
 const STATUS_OPTIONS = [
   'SUBMITTED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'
@@ -118,16 +119,19 @@ export default function AdminComplaintsPage() {
     }
   };
 
-  const updateStatus = async (complaintId: number, newStatus: string) => {
-    try {
-      await complaintsAPI.updateStatus(complaintId, newStatus);
-      fetchComplaints(); // Refresh list
-      fetchStats(); // Refresh stats
-    } catch (error) {
-      console.error('Error updating status:', error);
-      alert('Failed to update status');
+ const updateStatus = async (complaintId: number, newStatus: string, technicianId?: number, adminNotes?: string) => {
+  try {
+    await complaintsAPI.updateStatus(complaintId, newStatus, adminNotes);
+    if (newStatus === 'ASSIGNED' && technicianId) {
+      await complaintsAPI.assignTechnician(complaintId, technicianId);
     }
-  };
+    await Promise.all([fetchComplaints(), fetchStats()]); // Refresh in parallel
+    alert(`Status updated to ${newStatus}${technicianId ? ' and technician assigned' : ''}`);
+  } catch (error: any) {
+    console.error('Error updating status:', error);
+    alert(`Failed to update status: ${error.message || 'Unknown error'}`);
+  }
+};
 
   const assignTechnician = async (complaintId: number, technicianId: number) => {
     try {
