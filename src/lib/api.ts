@@ -1,7 +1,8 @@
 // lib/api.ts
 import { storage } from './storage';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL  || "http://localhost:3000";
+const ADMIN_ACCESS_KEY = process.env.NEXT_PUBLIC_ADMIN_ACCESS_KEY || 'your-very-secret-admin-key-12345';
 
 // Enhanced API response type
 interface ApiResponse<T = any> {
@@ -16,7 +17,6 @@ export const apiRequest = async <T = any>(
   options: RequestInit = {}
 ): Promise<T> => {
   try {
-    const ADMIN_ACCESS_KEY = process.env.EXPO_PUBLIC_ADMIN_ACCESS_KEY || 'your-very-secret-admin-key-12345';
 
     let headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -73,16 +73,15 @@ interface ReportConfig {
   };
 }
 
-interface ExportData {
-  reportType: string;
-  dateRange: { start: string; end: string };
-  filters: any;
-  data: any;
-}
+// interface ExportData {
+//   reportType: string;
+//   dateRange: { start: string; end: string };
+//   filters: any;
+//   data: any;
+// }
 
 // Reports API
 export const reportsAPI = {
-  // Generate a new report
   generate: (config: ReportConfig): Promise<any> =>
     apiRequest('/reports/generate', {
       method: 'POST',
@@ -106,25 +105,37 @@ export const reportsAPI = {
     apiRequest(`/reports/${reportId}`),
 
   // Export as CSV
-  exportCSV: (data: ExportData): Promise<any> =>
-    apiRequest('/reports/export/csv', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  // exportCSV: (data: ExportData): Promise<any> =>
+  //   apiRequest('/reports/export/csv', {
+  //     method: 'POST',
+  //     body: JSON.stringify(data),
+  //   }),
 
-  // Export as PDF
-  exportPDF: (data: ExportData): Promise<any> =>
-    apiRequest('/reports/export/pdf', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  // // Export as PDF
+  // exportPDF: (data: ExportData): Promise<any> =>
+  //   apiRequest('/reports/export/pdf', {
+  //     method: 'POST',
+  //     body: JSON.stringify(data),
+  //   }),
 
-  // Export as Excel
-  exportExcel: (data: ExportData): Promise<any> =>
-    apiRequest('/reports/export/excel', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  // // Export as Excel
+  // exportExcel: (data: ExportData): Promise<any> =>
+  //   apiRequest('/reports/export/excel', {
+  //     method: 'POST',
+  //     body: JSON.stringify(data),
+  //   }),
+
+  export: (reportId: number, format: 'csv'| 'pdf'| 'excel'): Promise<any> => {
+    if(!reportId || isNaN(reportId) || reportId <=0) {
+      throw new Error('Invalid report ID')
+    }
+    if(!['csv', 'pdf', 'excel'].includes(format)){
+      throw new Error('Invalid fromat')
+    }
+    return apiRequest(`/reports/export/${reportId}?format=${format}`,{
+      method: 'GET',
+    })
+  },
 
   // Delete a saved report
   delete: (reportId: number): Promise<void> =>
@@ -184,7 +195,8 @@ export const techniciansAPI = {
       limit: limit.toString(),
       ...(status && { status })
     });
-    return apiRequest(`/technicians?${params.toString()}`);
+    return apiRequest(`/technicians?${params.toString()}`,{
+    });
   },
 
   // Get technician by ID
@@ -237,7 +249,7 @@ export const analyticsAPI = {
       // Get top technicians
       getTopTechnicians: (limit: number = 3): Promise<any> =>
         apiRequest(`/analytics/top-technicians?limit=${limit}`),
-};
+    }
 
 
 
