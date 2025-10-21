@@ -120,6 +120,7 @@ const AnalyticsPage = () => {
       
       // Use the comprehensive analytics endpoint from your backend
       const data = await analyticsAPI.getComprehensiveAnalytics(days);
+      console.log('Analytics Data:', data)
       setAnalyticsData(data);
       
     } catch (error) {
@@ -582,39 +583,44 @@ const AnalyticsPage = () => {
 
         {/* Top Performers Section */}
         <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4">Top Performing Technicians</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {topTechnicians.map((tech, index) => (
-              <div key={index} className="border rounded-lg p-4">
-                <div className="flex items-center mb-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-blue-600 font-semibold">
-                      {tech.name.split(' ').map(n => n[0]).join('')}
-                    </span>
-                  </div>
-                  <div>
-                    <h3 className="font-medium">{tech.name}</h3>
-                    <p className="text-sm text-gray-500">Technician</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <p className="text-lg font-bold">{tech.completed}</p>
-                    <p className="text-xs text-gray-500">Completed</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold">{tech.efficiency}</p>
-                    <p className="text-xs text-gray-500">Efficiency</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold">{tech.avgTime}</p>
-                    <p className="text-xs text-gray-500">Avg. Time</p>
-                  </div>
-                </div>
-              </div>
-            ))}
+  <h2 className="text-lg font-semibold mb-4">Top Performing Technicians</h2>
+  {/* {console.log('Top Technicians:', topTechnicians)} Debug log */}
+  {topTechnicians && topTechnicians.length > 0 ? (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {topTechnicians.map((tech, index) => (
+        <div key={index} className="border rounded-lg p-4">
+          <div className="flex items-center mb-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+              <span className="text-blue-600 font-semibold">
+                {tech.name.split(' ').map(n => n[0]).join('')}
+              </span>
+            </div>
+            <div>
+              <h3 className="font-medium">{tech.name}</h3>
+              <p className="text-sm text-gray-500">Technician</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <p className="text-lg font-bold">{tech.completed}</p>
+              <p className="text-xs text-gray-500">Completed</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold">{tech.efficiency}</p>
+              <p className="text-xs text-gray-500">Efficiency</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold">{tech.avgTime}</p>
+              <p className="text-xs text-gray-500">Avg. Time</p>
+            </div>
           </div>
         </div>
+      ))}
+    </div>
+  ) : (
+    <p className="text-gray-500 text-center">No top performing technicians available for the selected time range.</p>
+  )}
+</div>
       </div>
     </div>
   );
