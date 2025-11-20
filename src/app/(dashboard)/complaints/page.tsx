@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { complaintsAPI, techniciansAPI } from '@/lib/api';
 import { Complaint, ComplaintStats } from '../../types/complaint';
-import { storage } from '@/lib/storage';
 
 const STATUS_OPTIONS = [
   'SUBMITTED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'
