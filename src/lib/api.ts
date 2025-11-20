@@ -1,7 +1,9 @@
 // lib/api.ts
+// "use client"
+import { io } from 'socket.io-client';
 import { storage } from './storage';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL  || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL  || "http://10.18.52.52:3000";
 const ADMIN_ACCESS_KEY = process.env.NEXT_PUBLIC_ADMIN_ACCESS_KEY || 'your-very-secret-admin-key-12345';
 
 // Enhanced API response type
@@ -10,7 +12,241 @@ interface ApiResponse<T = any> {
   error?: string;
   status: number;
 }
+interface CreateNotificationData {
+  title: string;
+  message: string;
+  type?: string;
+  targetUserType: 'all' | 'resident' | 'technician' | 'specific';
+  specificUsers?: string[];
+}
 
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  status: string;
+  targetUserType?: string;
+  specificUsers?: string[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Fixed Notifications API
+export const notificationsAPI = {
+  getAll: (page: number = 1, limit: number = 50): Promise<{ notifications: Notification[]; total: number }> => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    return apiRequest(`/notifications?${params.toString()}`);
+  },
+
+  create: (data: CreateNotificationData): Promise<Notification> =>
+    apiRequest('/notifications', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getById: (id: string): Promise<Notification> =>
+    apiRequest(`/notifications/${id}`),
+
+  updateStatus: (id: string, status: string): Promise<Notification> =>
+    apiRequest(`/notifications/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+
+  delete: (id: string): Promise<void> =>
+    apiRequest(`/notifications/${id}`, {
+      method: 'DELETE',
+    }),
+
+  getStats: (): Promise<{
+    total: number;
+    unread: number;
+    read: number;
+    sentToday: number;
+    byType: Record<string, number>;
+  }> => apiRequest('/notifications/stats'),
+
+  getUsers: (type?: 'resident' | 'technician'): Promise<Array<{
+    id: string;
+    name: string;
+    email: string;
+    type: 'resident' | 'technician';
+  }>> => {
+    const params = new URLSearchParams();
+    if (type) params.append('type', type);
+    return apiRequest(`/notifications/users?${params.toString()}`);
+  },
+
+  // New method to mark multiple notifications as read
+  markAsRead: (ids: string[]): Promise<void> =>
+    apiRequest('/notifications/mark-read', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
+
+  // Get user's personal notifications
+  getMyNotifications: (page: number = 1, limit: number = 50): Promise<{ notifications: Notification[]; total: number }> => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    return apiRequest(`/notifications/my-notifications?${params.toString()}`);
+  },
+};
+
+// Enhanced Socket Service for real-time notifications
+class SocketService {
+  private socket: any = null;
+  private isConnected = false;
+
+  // Connect as admin (for web dashboard)
+  connectAsAdmin() {
+    if (this.socket) return this.socket;
+
+    this.socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/notifications', {
+      extraHeaders: {
+        'x-admin-api-key': process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'your-very-secret-admin-key-12345'
+      },
+      transports: ['websocket'],
+      // path: '/notifications', // Add path for namespace
+    });
+
+    this.setupEventListeners();
+    return this.socket;
+  }
+
+  // Connect as user (for mobile app)
+  connectAsUser(userId: string, userType: 'resident' | 'technician') {
+    if (this.socket) return this.socket;
+
+    this.socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000', {
+      query: {
+        userId: userId,
+        userType: userType
+      },
+      transports: ['websocket', 'polling'],
+      // path: '/notifications',
+    });
+
+    this.setupEventListeners();
+    
+    // Register user with the server
+    setTimeout(() => {
+      if (this.socket && this.isConnected) {
+        this.socket.emit('register-user', { userId, userType });
+      }
+    }, 1000);
+    
+    return this.socket;
+  }
+
+  private setupEventListeners() {
+    if (!this.socket) return;
+
+    this.socket.on('connect', () => {
+      this.isConnected = true;
+      console.log('Connected to notifications server');
+    });
+
+    this.socket.on('disconnect', () => {
+      this.isConnected = false;
+      console.log(' Disconnected from notifications server');
+    });
+
+    this.socket.on('registration-success', (data: any) => {
+      console.log('User registered successfully:', data);
+    });
+
+    this.socket.on('new-notification', (notification: any) => {
+      console.log('New notification received:', notification);
+      this.handleNewNotification(notification);
+    });
+
+    this.socket.on('admin-notification', (data: any) => {
+      console.log(' Admin notification:', data);
+      this.handleAdminNotification(data);
+    });
+
+    this.socket.on('notification-sent', (data: any) => {
+      console.log('Notification sent successfully:', data);
+    });
+
+    this.socket.on('notification-error', (error: any) => {
+      console.error('Notification error:', error);
+    });
+  }
+
+  private handleNewNotification(notification: any) {
+    // Show browser notification
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(notification.title, {
+        body: notification.message,
+        icon: '/favicon.ico'
+      });
+    }
+
+    // Dispatch custom event for components
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('new-notification', { 
+        detail: notification 
+      }));
+    }
+  }
+
+  private handleAdminNotification(data: any) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('admin-notification', { 
+        detail: data 
+      }));
+    }
+  }
+
+  // Send notification (admin only)
+  sendNotification(data: {
+    targetUserIds: number[]; // Changed from targetUsers to match your backend
+    title: string;
+    message: string;
+    audience: 'ALL' | 'RESIDENT' | 'TECHNICIAN'; // Changed from type to match your backend
+  }) {
+    if (!this.socket || !this.isConnected) {
+      throw new Error('Socket not connected');
+    }
+
+    this.socket.emit('send-notification', data);
+  }
+
+  // Listen for specific events
+  on(event: string, callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.on(event, callback);
+    }
+  }
+
+  off(event: string, callback: (data: any) => void) {
+    if (this.socket) {
+      this.socket.off(event, callback);
+    }
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+      this.isConnected = false;
+    }
+  }
+
+  getConnectionStatus(): boolean {
+    return this.isConnected;
+  }
+}
+
+export const socketService = new SocketService();
 // Your existing apiRequest function (updated version)
 export const apiRequest = async <T = any>(
   endpoint: string, 
@@ -24,7 +260,12 @@ export const apiRequest = async <T = any>(
       ...options.headers,
     };
 
-    // Optional: Still include token if available
+    // admin-only request auto-attach admin key
+    // if (endpoint.startsWith('/admin') || endpoint.startsWith('/complaint')){
+    //   headers['x-admin-key-api-key'] = ADMIN_ACCESS_KEY
+    // }
+
+    // // Optional: Still include token if available
     // const token = await storage.getItem('token');
     // if (token) {
     //   headers['Authorization'] = `Bearer ${token}`;
@@ -386,3 +627,19 @@ export const setAuthToken = async (token: string): Promise<void> => {
 export const getAuthToken = async (): Promise<string | null> => {
   return await storage.getItem('token');
 };
+
+export async function fetchAdminProfile(id: string) {
+  const res = await fetch(`${API_BASE}/admin/${id}`);
+  if (!res.ok) throw new Error('Failed to fetch profile');
+  return res.json();
+}
+
+export async function updateAdminProfile(id: string, data: any) {
+  const res = await fetch(`${API_BASE}/admin/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update profile');
+  return res.json();
+}
