@@ -1,3 +1,4 @@
+// "use client"
 import AdminAuthPage from "./sign-in/Login"
 
 const Homepage = () => {
