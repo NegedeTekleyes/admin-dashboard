@@ -96,7 +96,7 @@ const NotificationsPage = () => {
     socketService.on('new-notification', handleNewNotification);
     socketService.on('admin-notification', handleAdminNotification);
     socketService.on('notification-sent', (data: any) => {
-      console.log('✅ Notification sent successfully:', data);
+      console.log(' Notification sent successfully:', data);
       // Refresh data after sending notification
       loadNotifications();
       loadStats();
@@ -282,11 +282,11 @@ const NotificationsPage = () => {
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       {/* Connection Status */}
-      <div className={`fixed top-4 right-4 px-4 py-2 rounded-lg text-white text-sm z-50 ${
+      {/* <div className={`fixed top-4 right-4 px-4 py-2 rounded-lg text-white text-sm z-50 ${
         isConnected ? 'bg-green-500' : 'bg-red-500'
       }`}>
-        {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
-      </div>
+        {/* {isConnected ? '🟢 Connected' : '🔴 Disconnected'} */}
+      {/* </div> */} 
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
