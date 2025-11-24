@@ -4,44 +4,48 @@ import { useState, useEffect } from "react";
 import { FaUserCircle, FaEdit, FaEnvelope, FaPhone, FaSave, FaTimes, FaLock, FaChartLine, FaComments, FaBell, FaSync, FaExclamationTriangle } from "react-icons/fa";
 import { adminAPI } from '@/lib/api';
 
+// FIXED: Match the interfaces from api.ts
 interface Admin {
   id: number;
   name: string;
-  email: string;
-  phone: string;
-  role: string;
-  joinedDate: string;
-  bio: string;
-  avatar?: string;
+  userId: number;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    lastLogin: string;
+    createdAt: string;
+  };
 }
 
 interface AdminStats {
-  totalReports: number;
-  messagesSent: number;
-  systemAlerts: number;
-  resolvedComplaints: number;
+  adminCount: number;
+  userCount: number;
+  technicians: number;
+  complaintsCount: number;
 }
 
 const AdminProfilePage = () => {
   const [admin, setAdmin] = useState<Admin>({
     id: 0,
     name: "",
-    email: "",
-    phone: "",
-    role: "",
-    joinedDate: "",
-    bio: "",
+    userId: 0,
   });
   
   const [stats, setStats] = useState<AdminStats>({
-    totalReports: 0,
-    messagesSent: 0,
-    systemAlerts: 0,
-    resolvedComplaints: 0,
+    adminCount: 0,
+    userCount: 0,
+    technicians: 0,
+    complaintsCount: 0,
   });
   
   const [isEditing, setIsEditing] = useState(false);
-  const [updatedAdmin, setUpdatedAdmin] = useState<Admin>(admin);
+  const [updatedAdmin, setUpdatedAdmin] = useState<Admin>({
+    id: 0,
+    name: "",
+    userId: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -57,7 +61,11 @@ const AdminProfilePage = () => {
     try {
       setLoading(true);
       setError("");
+      console.log("Fetching admin profile...");
+      
       const adminData = await adminAPI.getProfile();
+      console.log("Admin profile response:", adminData);
+      
       setAdmin(adminData);
       setUpdatedAdmin(adminData);
     } catch (error: any) {
@@ -70,11 +78,12 @@ const AdminProfilePage = () => {
 
   const fetchAdminStats = async () => {
     try {
+      console.log("Fetching admin stats...");
       const statsData = await adminAPI.getStats();
+      console.log("Admin stats response:", statsData);
       setStats(statsData);
     } catch (error: any) {
       console.error('Error fetching admin stats:', error);
-      // Don't set error for stats failure as it's secondary data
     }
   };
 
@@ -84,25 +93,36 @@ const AdminProfilePage = () => {
       setError("");
       setSuccess("");
 
+      // Get current values
+      const currentName = admin.user?.name || admin.name;
+      const currentEmail = admin.user?.email || "";
+      const currentPhone = admin.user?.phone || "";
+
+      // Get updated values
+      const updatedName = updatedAdmin.user?.name || updatedAdmin.name;
+      const updatedEmail = updatedAdmin.user?.email || "";
+      const updatedPhone = updatedAdmin.user?.phone || "";
+
       // Validate required fields
-      if (!updatedAdmin.name.trim() || !updatedAdmin.email.trim()) {
-        setError("Name and email are required");
+      if (!updatedName.trim()) {
+        setError("Name is required");
         return;
       }
 
       // Email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(updatedAdmin.email)) {
-        setError("Please enter a valid email address");
-        return;
+      if (updatedEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(updatedEmail)) {
+          setError("Please enter a valid email address");
+          return;
+        }
       }
 
-      // Prepare update data (only include changed fields)
+      // Prepare update data
       const updateData: any = {};
-      if (updatedAdmin.name !== admin.name) updateData.name = updatedAdmin.name;
-      if (updatedAdmin.email !== admin.email) updateData.email = updatedAdmin.email;
-      if (updatedAdmin.phone !== admin.phone) updateData.phone = updatedAdmin.phone;
-      if (updatedAdmin.bio !== admin.bio) updateData.bio = updatedAdmin.bio;
+      if (updatedName !== currentName) updateData.name = updatedName;
+      if (updatedEmail !== currentEmail) updateData.email = updatedEmail;
+      if (updatedPhone !== currentPhone) updateData.phone = updatedPhone;
 
       // Only send request if there are changes
       if (Object.keys(updateData).length > 0) {
@@ -170,6 +190,29 @@ const AdminProfilePage = () => {
       [field]: value
     }));
   };
+
+  const handleUserInputChange = (field: keyof NonNullable<Admin['user']>, value: string) => {
+    setUpdatedAdmin(prev => ({
+      ...prev,
+      user: {
+        ...prev.user,
+        [field]: value,
+        id: prev.user?.id || 0,
+        name: prev.user?.name || "",
+        email: prev.user?.email || "",
+        phone: prev.user?.phone || "",
+        lastLogin: prev.user?.lastLogin || "",
+        createdAt: prev.user?.createdAt || ""
+      }
+    }));
+  };
+
+  // Helper functions to get display values
+  const displayName = admin.user?.name || admin.name || "Unknown User";
+  const displayEmail = admin.user?.email || "Not provided";
+  const displayPhone = admin.user?.phone || "Not provided";
+  const displayLastLogin = admin.user?.lastLogin ? formatDate(admin.user.lastLogin) : "Never";
+  const displayJoinDate = admin.user?.createdAt ? formatDate(admin.user.createdAt) : "Unknown date";
 
   if (loading) {
     return (
@@ -248,24 +291,19 @@ const AdminProfilePage = () => {
             <div className="md:w-1/3 bg-gradient-to-b from-blue-600 to-indigo-700 text-white p-8">
               <div className="flex flex-col items-center text-center">
                 <div className="relative">
-                  {admin.avatar ? (
-                    <img 
-                      src={admin.avatar} 
-                      alt={admin.name}
-                      className="w-32 h-32 rounded-full border-4 border-white shadow-lg object-cover"
-                    />
-                  ) : (
-                    <FaUserCircle className="text-white/90" size={128} />
-                  )}
+                  <FaUserCircle className="text-white/90" size={128} />
                   <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full border-4 border-white flex items-center justify-center">
                     <div className="w-2 h-2 bg-white rounded-full"></div>
                   </div>
                 </div>
                 
-                <h2 className="mt-6 text-2xl font-bold">{admin.name || "Unknown User"}</h2>
-                <p className="text-blue-100 mt-1">{admin.role || "Administrator"}</p>
+                <h2 className="mt-6 text-2xl font-bold">{displayName}</h2>
+                <p className="text-blue-100 mt-1">Administrator</p>
                 <p className="text-blue-200 text-sm mt-2">
-                  Joined {admin.joinedDate ? formatDate(admin.joinedDate) : "Unknown date"}
+                  Joined {displayJoinDate}
+                </p>
+                <p className="text-blue-200 text-sm mt-1">
+                  Last login: {displayLastLogin}
                 </p>
 
                 <button 
@@ -288,8 +326,8 @@ const AdminProfilePage = () => {
                       </label>
                       <input
                         type="text"
-                        value={updatedAdmin.name}
-                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        value={updatedAdmin.user?.name || updatedAdmin.name}
+                        onChange={(e) => handleUserInputChange('name', e.target.value)}
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         placeholder="Enter your full name"
                       />
@@ -297,12 +335,12 @@ const AdminProfilePage = () => {
 
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Email Address *
+                        Email Address
                       </label>
                       <input
                         type="email"
-                        value={updatedAdmin.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        value={updatedAdmin.user?.email || ""}
+                        onChange={(e) => handleUserInputChange('email', e.target.value)}
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         placeholder="Enter your email"
                       />
@@ -314,8 +352,8 @@ const AdminProfilePage = () => {
                       </label>
                       <input
                         type="text"
-                        value={updatedAdmin.phone}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        value={updatedAdmin.user?.phone || ""}
+                        onChange={(e) => handleUserInputChange('phone', e.target.value)}
                         className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         placeholder="Enter your phone number"
                       />
@@ -327,26 +365,11 @@ const AdminProfilePage = () => {
                       </label>
                       <input
                         type="text"
-                        value={updatedAdmin.role}
+                        value="Administrator"
                         readOnly
                         className="w-full border border-gray-300 bg-gray-50 rounded-xl px-4 py-3 text-gray-500 cursor-not-allowed"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Bio
-                    </label>
-                    <textarea
-                      value={updatedAdmin.bio}
-                      onChange={(e) => handleInputChange('bio', e.target.value)}
-                      className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all h-32"
-                      placeholder="Tell us about yourself..."
-                    ></textarea>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {updatedAdmin.bio.length}/500 characters
-                    </p>
                   </div>
 
                   <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
@@ -378,7 +401,7 @@ const AdminProfilePage = () => {
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Email</p>
-                          <p className="text-gray-800 font-medium">{admin.email || "Not provided"}</p>
+                          <p className="text-gray-800 font-medium">{displayEmail}</p>
                         </div>
                       </div>
 
@@ -388,56 +411,46 @@ const AdminProfilePage = () => {
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Phone</p>
-                          <p className="text-gray-800 font-medium">{admin.phone || "Not provided"}</p>
+                          <p className="text-gray-800 font-medium">{displayPhone}</p>
                         </div>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Bio */}
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-800 mb-4">About</h3>
-                    <div className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all">
-                      <p className="text-gray-700 leading-relaxed">
-                        {admin.bio || "No bio provided yet."}
-                      </p>
                     </div>
                   </div>
 
                   {/* Quick Stats */}
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-800 mb-4">Activity Overview</h3>
+                    <h3 className="text-xl font-semibold text-gray-800 mb-4">System Overview</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-center group hover:shadow-lg transition-all cursor-pointer">
                         <div className="p-3 bg-blue-500 rounded-lg w-12 h-12 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                          <FaChartLine className="text-white text-lg" />
+                          <FaUserCircle className="text-white text-lg" />
                         </div>
-                        <p className="text-sm text-blue-600 font-semibold">Total Reports</p>
-                        <p className="text-2xl font-bold text-blue-700">{stats.totalReports.toLocaleString()}</p>
+                        <p className="text-sm text-blue-600 font-semibold">Admins</p>
+                        <p className="text-2xl font-bold text-blue-700">{stats.adminCount.toLocaleString()}</p>
                       </div>
                       
                       <div className="bg-green-50 border border-green-100 p-4 rounded-xl text-center group hover:shadow-lg transition-all cursor-pointer">
                         <div className="p-3 bg-green-500 rounded-lg w-12 h-12 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                          <FaComments className="text-white text-lg" />
+                          <FaUserCircle className="text-white text-lg" />
                         </div>
-                        <p className="text-sm text-green-600 font-semibold">Messages</p>
-                        <p className="text-2xl font-bold text-green-700">{stats.messagesSent.toLocaleString()}</p>
+                        <p className="text-sm text-green-600 font-semibold">Users</p>
+                        <p className="text-2xl font-bold text-green-700">{stats.userCount.toLocaleString()}</p>
                       </div>
                       
                       <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl text-center group hover:shadow-lg transition-all cursor-pointer">
                         <div className="p-3 bg-orange-500 rounded-lg w-12 h-12 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                          <FaBell className="text-white text-lg" />
+                          <FaUserCircle className="text-white text-lg" />
                         </div>
-                        <p className="text-sm text-orange-600 font-semibold">Alerts</p>
-                        <p className="text-2xl font-bold text-orange-700">{stats.systemAlerts.toLocaleString()}</p>
+                        <p className="text-sm text-orange-600 font-semibold">Technicians</p>
+                        <p className="text-2xl font-bold text-orange-700">{stats.technicians.toLocaleString()}</p>
                       </div>
                       
                       <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl text-center group hover:shadow-lg transition-all cursor-pointer">
                         <div className="p-3 bg-purple-500 rounded-lg w-12 h-12 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                          <FaUserCircle className="text-white text-lg" />
+                          <FaChartLine className="text-white text-lg" />
                         </div>
-                        <p className="text-sm text-purple-600 font-semibold">Resolved</p>
-                        <p className="text-2xl font-bold text-purple-700">{stats.resolvedComplaints.toLocaleString()}</p>
+                        <p className="text-sm text-purple-600 font-semibold">Complaints</p>
+                        <p className="text-2xl font-bold text-purple-700">{stats.complaintsCount.toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
