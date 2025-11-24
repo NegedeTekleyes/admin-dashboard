@@ -24,7 +24,12 @@ export default function RootLayout({
         className={`${inter.className} bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100`}
       >
         <AuthProvider>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            {/* FIXED WRAPPER TO PREVENT NAVBAR OVERLAP */}
+            <div className="pt-10 min-h-screen">
+              {children}
+            </div>
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>
