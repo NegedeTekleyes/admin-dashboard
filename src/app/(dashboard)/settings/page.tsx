@@ -29,8 +29,8 @@ export default function AdminSettingsPage() {
     { id: 'profile', name: 'Profile', icon: FaUser },
     { id: 'security', name: 'Security', icon: FaShieldAlt },
     { id: 'notifications', name: 'Notifications', icon: FaBell },
-    { id: 'appearance', name: 'Appearance', icon: FaPalette },
-    { id: 'system', name: 'System', icon: FaCog },
+    // { id: 'appearance', name: 'Appearance', icon: FaPalette },
+    // { id: 'system', name: 'System', icon: FaCog },
   ];
 
   const showMessage = (type: string, text: string) => {
