@@ -68,7 +68,7 @@ const AdminAuthPage = () => {
       // await new Promise(resolve => setTimeout(resolve, 1500));
       
       if (isLogin) {
-        const response = await fetch('http://localhost:3000/auth/login', {
+        const response = await fetch('http://192.168.1.5:3000/auth/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -108,50 +108,7 @@ const AdminAuthPage = () => {
     } finally{
       setIsSubmitting(false)
     }
-        // console.log("Login attempt:", { email: formData.email });
-        // In real app: API call to authenticate admin
-        // for demo purpose we'll accept any email/password combination
-//         const isAuthenticated = true
-
-//         if(isAuthenticated) {
-//           // store authentication data (in real app, you'd get this fromyour api)
-
-//           localStorage.setItem('authToken', 'demo-token-123')
-//           localStorage.setItem('userData', JSON.stringify({
-//             name: 'Admin User',
-//             email: formData.email,
-//             role: 'admin'
-
-//           }))
-//           // alert("Login successful! Redirecting to dashboard...");
-//         router.push('/admin')
-//         }
-//       } else {
-//         // registration logic 
-//         console.log("Registration attempt:", formData);
-
-//         // for demo accept any invite code that's not empty
-//         if(formData.inviteCode.trim()) {
-//           alert("Account created successfully! You can now login.");
-//           setIsLogin(true); // Switch to login after successful registration
-// // clear the form
-//           setFormData({
-//             email: '',
-//             password: '',
-//             inviteCode: ""
-//           })
-//         } else {
-//           alert("Registration failed.Place check your invation code.")
-//         }
-//       }
-    // } catch (error) {
-    //   console.error("Auth error:", error);
-    //   alert(isLogin ? "Login failed. Please check your credentials." : "Registration failed. Please check your invitation code.");
-    // } finally {
-    //   setIsSubmitting(false);
-    // }
   };
-
 
    return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">

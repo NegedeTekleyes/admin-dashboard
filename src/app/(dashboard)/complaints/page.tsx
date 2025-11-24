@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { complaintsAPI, techniciansAPI } from '@/lib/api';
 import { Complaint, ComplaintStats } from '../../types/complaint';
-import { storage } from '@/lib/storage';
 
 const STATUS_OPTIONS = [
   'SUBMITTED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'
@@ -25,6 +24,7 @@ interface Technician {
   };
   speciality: string | null;
   status: string;
+  createdAt: string
 }
 
 export default function AdminComplaintsPage() {
@@ -165,8 +165,11 @@ export default function AdminComplaintsPage() {
   };
 
   const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+    setFilters(prev => ({ 
+      ...prev, 
+      [key]: key === 'page'? parseInt(value) : value}));
   };
+  
 
   const getStatusColor = (status: string) => {
     const colors = {
