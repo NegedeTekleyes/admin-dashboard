@@ -2,7 +2,7 @@
 import { io } from 'socket.io-client';
 import { storage } from './storage';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.5:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.4:3000";
 const ADMIN_ACCESS_KEY = process.env.NEXT_PUBLIC_ADMIN_ACCESS_KEY || 'your-very-secret-admin-key-12345';
 
 // Enhanced API response type
