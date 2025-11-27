@@ -16,17 +16,17 @@ export default function ComplaintActions({ complaint, onView, onReload }: Compla
   const [technicians, setTechnicians] = useState<any[]>([]);
   const [selectedTech, setSelectedTech] = useState<string>('');
 
-  // ✅ Fetch all available technicians
+  // Fetch all available technicians
   useEffect(() => {
     if (showModal) {
-      fetch('http://localhost:3000/technicians') // adjust URL if needed
+      fetch('http://localhost:3000/technicians') 
         .then((res) => res.json())
         .then(setTechnicians)
         .catch((err) => console.error('Failed to load technicians:', err));
     }
   }, [showModal]);
 
-  // ✅ Assign Technician with modal
+  // Assign Technician with modal
   const handleAssignTechnician = async () => {
     if (!selectedTech) {
       alert('Please select a technician.');
@@ -35,27 +35,27 @@ export default function ComplaintActions({ complaint, onView, onReload }: Compla
     try {
       setLoading(true);
       await complaintsAPI.assignTechnician(complaint.id, Number(selectedTech));
-      alert('Technician assigned successfully ✅');
+      alert('Technician assigned successfully ');
       setShowModal(false);
       onReload();
     } catch (error) {
-      alert('Failed to assign technician ❌');
+      alert('Failed to assign technician');
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 🚫 Block Reporter
+  // Block Reporter
   const handleBlockReporter = async () => {
     if (!confirm(`Block reporter ${complaint.user.email}?`)) return;
     try {
       setLoading(true);
       await fetch(`http://localhost:3000/users/block/${complaint.user.id}`, { method: 'PUT' });
-      alert('Reporter blocked ✅');
+      alert('Reporter blocked');
       onReload();
     } catch (error) {
-      alert('Failed to block reporter ❌');
+      alert('Failed to block reporter');
       console.error(error);
     } finally {
       setLoading(false);
