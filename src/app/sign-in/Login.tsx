@@ -9,7 +9,6 @@ const AdminAuthPage = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    inviteCode: ""
   })
 
   const [showPassword, setShowPassword] = useState(false)
@@ -17,17 +16,17 @@ const AdminAuthPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const router = useRouter()
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) =>{
-    const {name, value} = e.target
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
 
     setFormData(prev => ({
       ...prev,
       [name]: value
     }))
 
-    if(errors[name]){
-      setErrors(prev=>{
-        const newErrors ={ ...prev}
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev }
         delete newErrors[name]
         return newErrors
       })
@@ -37,38 +36,34 @@ const AdminAuthPage = () => {
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
-      if (!formData.email.trim()) {
+    if (!formData.email.trim()) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
     }
-       if (!formData.password) {
+    if (!formData.password) {
       newErrors.password = "Password is required";
     } else if (formData.password.length < 8) {
       newErrors.password = "Password must be at least 8 characters";
     }
-    
-    if (!isLogin && !formData.inviteCode) {
-      newErrors.inviteCode = "Invitation code is required";
-    }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  
+
   }
-    const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       // Simulate API call
       // await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       if (isLogin) {
-        const response = await fetch('http://192.168.1.5:3000/auth/login', {
+        const response = await fetch('http://192.168.1.4:3000/auth/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -79,7 +74,7 @@ const AdminAuthPage = () => {
           }),
         })
 
-        if(!response.ok){
+        if (!response.ok) {
           const errorData = await response.json()
           throw new Error(errorData.message || 'Login Failed')
         }
@@ -91,26 +86,26 @@ const AdminAuthPage = () => {
         localStorage.setItem('userData', JSON.stringify(data.user))
 
         // check if user is admin
-        if(data.user.role !=='ADMIN'){
+        if (data.user.role !== 'ADMIN') {
           throw new Error('Access denied. Admin privileges required.')
         }
 
         console.log("Login successful!", data.user)
         router.push('/complaints')
-      }else{
+      } else {
         // Registration logic (you can implement this later)
         console.log("Registration attempt:", formData)
         alert("Admin registration requires manual setup. Please contact system administrator.")
       }
-    } catch(error: any){
-       console.error("Auth error:", error)
+    } catch (error: any) {
+      console.error("Auth error:", error)
       setErrors({ submit: error.message || 'Authentication failed' })
-    } finally{
+    } finally {
       setIsSubmitting(false)
     }
   };
 
-   return (
+  return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md overflow-hidden">
         <div className="bg-NegeSky py-4 px-6">
@@ -121,7 +116,7 @@ const AdminAuthPage = () => {
             Water Complaint Management System
           </p>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Email Field */}
           <div>
@@ -138,15 +133,14 @@ const AdminAuthPage = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className={`block w-full pl-10 pr-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                  errors.email ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`block w-full pl-10 pr-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${errors.email ? "border-red-500" : "border-gray-300"
+                  }`}
                 placeholder="admin@waterworks.com"
               />
             </div>
             {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
           </div>
-          
+
           {/* Password Field */}
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
@@ -162,9 +156,8 @@ const AdminAuthPage = () => {
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className={`block w-full pl-10 pr-10 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                  errors.password ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`block w-full pl-10 pr-10 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${errors.password ? "border-red-500" : "border-gray-300"
+                  }`}
                 placeholder="••••••••"
               />
               <button
@@ -177,7 +170,7 @@ const AdminAuthPage = () => {
             </div>
             {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
           </div>
-          
+
           {/* Invite Code Field (for registration only) */}
           {!isLogin && (
             <div>
@@ -192,11 +185,9 @@ const AdminAuthPage = () => {
                   type="text"
                   id="inviteCode"
                   name="inviteCode"
-                  value={formData.inviteCode}
                   onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                    errors.inviteCode ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={`block w-full pl-10 pr-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${errors.inviteCode ? "border-red-500" : "border-gray-300"
+                    }`}
                   placeholder="Enter your invitation code"
                 />
               </div>
@@ -206,7 +197,7 @@ const AdminAuthPage = () => {
               </p>
             </div>
           )}
-          
+
           {/* Submit Button */}
           <div>
             <button
@@ -223,12 +214,12 @@ const AdminAuthPage = () => {
                   {isLogin ? "Signing in..." : "Creating Account..."}
                 </>
               ) : isLogin ? "Sign In" : "Create Account"}
-              
+
             </button>
           </div>
-          
+
           {/* Switch between Login and Register */}
-          <div className="text-center text-sm text-gray-600">
+          {/* <div className="text-center text-sm text-gray-600">
             {isLogin ? (
               <>
                 Need admin access?{" "}
@@ -252,8 +243,8 @@ const AdminAuthPage = () => {
                 </button>
               </>
             )}
-          </div>
-          
+          </div> */}
+
           {/* Security Notice */}
           <div className="p-3 bg-yellow-50 rounded-md border border-yellow-200">
             <div className="flex">
