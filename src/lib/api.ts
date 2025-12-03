@@ -2,7 +2,7 @@
 import { io } from 'socket.io-client';
 import { storage } from './storage';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.4:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.3:3000";
 const ADMIN_ACCESS_KEY = process.env.NEXT_PUBLIC_ADMIN_ACCESS_KEY || 'your-very-secret-admin-key-12345';
 
 // Enhanced API response type
@@ -70,7 +70,7 @@ export const adminAPI = {
   // Update admin profile
   updateProfile: (data: UpdateAdminProfileData): Promise<AdminProfile> =>
     apiRequest('/admin/profile', {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(data),
     }),
 
@@ -321,6 +321,7 @@ export const apiRequest = async <T = any>(
     let headers: HeadersInit = {
       'Content-Type': 'application/json',
       'x-admin-api-key': ADMIN_ACCESS_KEY, 
+      // 'Authorization': `API-KEY${ADMIN_ACCESS_KEY}`,
       ...options.headers,
     };
 

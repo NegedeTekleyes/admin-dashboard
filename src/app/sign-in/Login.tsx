@@ -63,7 +63,7 @@ const AdminAuthPage = () => {
       // await new Promise(resolve => setTimeout(resolve, 1500));
 
       if (isLogin) {
-        const response = await fetch('http://192.168.1.4:3000/auth/login', {
+        const response = await fetch('http://192.168.1.3:3000/auth/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
