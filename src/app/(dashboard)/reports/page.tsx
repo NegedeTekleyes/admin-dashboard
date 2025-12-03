@@ -33,6 +33,7 @@ interface Technician {
 interface AnalyticsReportData {
   period: { start: string; end: string };
   summary: {
+    categories: any;
     totalComplaints: number;
     resolvedComplaints: number;
     resolutionRate: number;
@@ -338,23 +339,34 @@ const ReportsPage = () => {
   };
 
   const exportReport = async (format: "csv" | "pdf" | "excel") => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      // Assume backend has an export endpoint, e.g., /reports/export/:id?format={format}
-      const reportId = realReportData?.id; // Adjust based on actual data structure
-      if (!reportId || isNaN(reportId) || reportId <= 0) {
-        throw new Error("No report data available to export");
-      }
-      await reportsAPI.export(reportId, format); // Implement this in reportsAPI
-      alert(`Report exported as ${format.toUpperCase()} successfully!`);
-    } catch (error) {
-      console.error(`Error exporting report as ${format}:`, error);
-      setError(`Failed to export report as ${format.toUpperCase()}.`);
-    } finally {
-      setIsLoading(false);
+  try {
+    setIsLoading(true);
+    setError(null);
+
+    // Determine the report ID safely
+    let reportId: number | undefined;
+    if ("technician" in (realReportData as TechnicianPerformanceData)) {
+      // Technician performance report
+      reportId = (realReportData as TechnicianPerformanceData).technician.id;
+    } else if ("summary" in (realReportData as AnalyticsReportData)) {
+      // Analytics report, assume ID comes from backend or savedReports
+      reportId = savedReports[0]?.id; // fallback, you can adjust if backend returns ID differently
     }
-  };
+
+    if (!reportId || isNaN(reportId) || reportId <= 0) {
+      throw new Error("No report data available to export");
+    }
+
+    await reportsAPI.export(reportId, format);
+    alert(`Report exported as ${format.toUpperCase()} successfully!`);
+  } catch (error) {
+    console.error(`Error exporting report as ${format}:`, error);
+    setError(`Failed to export report as ${format.toUpperCase()}.`);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const printReport = () => {
     window.print();

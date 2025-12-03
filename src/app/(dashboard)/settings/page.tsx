@@ -6,11 +6,6 @@ import {
   FaUser, 
   FaShieldAlt, 
   FaBell, 
-  FaPalette, 
-  FaDatabase, 
-  FaCog,
-  FaSave,
-  FaSync,
   FaCheckCircle,
   FaExclamationTriangle
 } from 'react-icons/fa';
@@ -21,8 +16,6 @@ import { SecuritySettings } from '@/components/settings/SecuritySettings';
 
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const tabs = [
