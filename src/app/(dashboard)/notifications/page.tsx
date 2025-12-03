@@ -216,8 +216,20 @@ const NotificationsPage = () => {
     }
 
     try {
+
+      const payload = {
+      title: newNotification.title,
+      message: newNotification.message,
+      type: newNotification.type, // keep as-is (your API likely accepts uppercase here)
+      targetUserType: (newNotification.targetUserType || "ALL").toLowerCase() as
+        | "all"
+        | "resident"
+        | "technician"
+        | "specific",
+      specificUsers: newNotification.specificUsers || [],
+    };
       // Send via API
-      await notificationsAPI.create(newNotification);
+      await notificationsAPI.create(payload);
 
       // Also send via WebSocket for real-time delivery
       if (isConnected) {
