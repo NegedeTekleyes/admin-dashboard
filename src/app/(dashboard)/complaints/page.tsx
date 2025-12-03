@@ -205,21 +205,34 @@ export default function AdminComplaintsPage() {
     return urgency.toLowerCase();
   };
 
-  // Fixed formatDate function - properly typed and returns string
-  const formatDate = (dateString: string): string => {
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Invalid date';
-    }
-  };
+  // Fixed formatCreatedDate function - properly typed and returns string
+  // const formatCreatedDate = (dateString: string): string => {
+  //   try {
+  //     return new Date(dateString).toLocaleDateString('en-US', {
+  //       year: 'numeric',
+  //       month: 'long',
+  //       day: 'numeric',
+  //       hour: '2-digit',
+  //       minute: '2-digit'
+  //     });
+  //   } catch (error) {
+  //     console.error('Error formatting date:', error);
+  //     return 'Invalid date';
+  //   }
+  // };
+
+  const formatCreatedDate = (value: any): string => {
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return 'Invalid date';
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 
   // Toggle action menu
   const toggleActionMenu = (id: number, e: React.MouseEvent) => {
@@ -634,13 +647,13 @@ export default function AdminComplaintsPage() {
                         <div>
                           <label className="text-sm font-medium text-gray-600">Created Date</label>
                           <p className="text-gray-900">
-                            {selectedComplaint.createdAt ? formatDate(selectedComplaint.createdAt) : 'Unknown date'}
+                            {selectedComplaint.createdAt ? formatCreatedDate(selectedComplaint.createdAt) : 'Unknown date'}
                           </p>
                         </div>
                         {selectedComplaint.updatedAt && (
                           <div>
                             <label className="text-sm font-medium text-gray-600">Last Updated</label>
-                            <p className="text-gray-900">{formatDate(selectedComplaint.updatedAt)}</p>
+                            <p className="text-gray-900">{formatCreatedDate(selectedComplaint.updatedAt)}</p>
                           </div>
                         )}
                       </div>
@@ -670,9 +683,9 @@ export default function AdminComplaintsPage() {
                               )}
                             </div>
                             <div className="text-right text-sm text-gray-500">
-                              <p>Created: {formatDate(task.createdAt)}</p>
+                              <p>Created: {formatCreatedDate(task.createdAt)}</p>
                               {task.updatedAt && task.updatedAt !== task.createdAt && (
-                                <p>Updated: {formatDate(task.updatedAt)}</p>
+                                <p>Updated: {formatCreatedDate(task.updatedAt)}</p>
                               )}
                             </div>
                           </div>
