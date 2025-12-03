@@ -38,7 +38,6 @@ export default function AdminDashboard() {
           </nav>
         </div>
 
-        {/* Tab Content */}
         <div>
           {activeTab === 'technicians' && <TechniciansList />}
           {activeTab === 'performance' && <TechnicianPerformance />}

@@ -55,7 +55,6 @@ const TechniciansManagement = () => {
   const [actionMenuOpen, setActionMenuOpen] = useState<number | null>(null);
   const actionMenuRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
 
-  // Close action menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const clickedOutsideAllMenus = Object.values(actionMenuRefs.current).every(
@@ -71,7 +70,6 @@ const TechniciansManagement = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch technicians
   const fetchTechnicians = async () => {
     setLoading(true);
     try {
