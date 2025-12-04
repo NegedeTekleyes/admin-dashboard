@@ -2,7 +2,7 @@
 import { io } from 'socket.io-client';
 import { storage } from './storage';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.2:3000";
 const ADMIN_ACCESS_KEY = process.env.NEXT_PUBLIC_ADMIN_ACCESS_KEY || 'your-very-secret-admin-key-12345';
 
 // Enhanced API response type
@@ -318,9 +318,11 @@ export const apiRequest = async <T = any>(
   options: RequestInit = {}
 ): Promise<T> => {
   try {
+    const token = await getAuthToken()
     let headers: HeadersInit = {
       'Content-Type': 'application/json',
       'x-admin-api-key': ADMIN_ACCESS_KEY, 
+      ...(token && {Authorization: `Bearer ${token}`}),
       // 'Authorization': `API-KEY${ADMIN_ACCESS_KEY}`,
       ...options.headers,
     };
