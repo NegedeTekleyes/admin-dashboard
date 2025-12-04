@@ -192,7 +192,7 @@ const ReportsPage = () => {
       setError(null);
       const reportConfig: ReportConfig = {
         title: getReportTitle(),
-        type: getReportType(),
+        type: getReportType().toUpperCase(),
         filters: {
           startDate: dateRange.start,
           endDate: dateRange.end,
@@ -261,9 +261,9 @@ const ReportsPage = () => {
 
   const getReportType = () => {
     const typeMap: { [key: string]: string } = {
-      summary: "SUMMARY",
+      summary: "ANALYTICS",
       analytics: "ANALYTICS",
-      performance: "TECHNICIAN",
+      performance: "TECHNICIAN_PERFORMANCE",
       category: "ANALYTICS",
     };
     return typeMap[reportType] || "ANALYTICS";
