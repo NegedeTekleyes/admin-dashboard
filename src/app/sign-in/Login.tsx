@@ -59,11 +59,11 @@ const AdminAuthPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Simulate API call
-      // await new Promise(resolve => setTimeout(resolve, 1500));
-
+      // ⭐⭐ FIXED: Use environment variable for API URL
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+      
       if (isLogin) {
-        const response = await fetch('http://192.168.1.2:3000/auth/login', {
+        const response = await fetch(`${API_BASE}/auth/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -93,7 +93,7 @@ const AdminAuthPage = () => {
         console.log("Login successful!", data.user)
         router.push('/complaints')
       } else {
-        // Registration logic (you can implement this later)
+        // Registration logic
         console.log("Registration attempt:", formData)
         alert("Admin registration requires manual setup. Please contact system administrator.")
       }
@@ -171,30 +171,19 @@ const AdminAuthPage = () => {
             {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
           </div>
 
-          {/* Invite Code Field (for registration only) */}
-          {!isLogin && (
-            <div>
-              <label htmlFor="inviteCode" className="block text-sm font-medium text-gray-700 mb-1">
-                Invitation Code
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaShieldAlt className="text-gray-400" />
+          {/* Error Message Display */}
+          {errors.submit && (
+            <div className="p-3 bg-red-50 rounded-md border border-red-200">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
                 </div>
-                <input
-                  type="text"
-                  id="inviteCode"
-                  name="inviteCode"
-                  onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${errors.inviteCode ? "border-red-500" : "border-gray-300"
-                    }`}
-                  placeholder="Enter your invitation code"
-                />
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{errors.submit}</p>
+                </div>
               </div>
-              {errors.inviteCode && <p className="mt-1 text-sm text-red-600">{errors.inviteCode}</p>}
-              <p className="mt-1 text-xs text-gray-500">
-                Contact system administrator to get an invitation code
-              </p>
             </div>
           )}
 
