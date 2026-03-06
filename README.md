@@ -57,7 +57,7 @@ Technician Interface → Backend API → Database
 
 Clone the repository:
 
-git clone https://github.com/yourusername/shegareport.git
+git clone https://github.com/NegedeTekleyes/admin-dashboard
 
 Navigate to the project folder:
 
